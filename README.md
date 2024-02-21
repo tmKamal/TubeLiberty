@@ -1,4 +1,4 @@
-# TubeLibery
+# TubeLiberty
 
 TubeLiberty is a powerful Chrome extension designed to liberate users from the shackles of endless scrolling and mindless consumption on YouTube. It helps users manage their time on YouTube by limiting the number of short videos they can watch in a row. Also it can set a daily time limit for YouTube usage, Once the user exceeds the daily limit, the extension will prevent them from watching any more videos.
 
