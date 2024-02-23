@@ -1,9 +1,15 @@
 // Initialize totalWatchedShorts in storage
 chrome.storage.local.set({ totalWatchedShorts: 0 });
 
-function incrementWatchedShorts(tabUrl) {
+// Open a new tab with the page.html file when the extension is installed
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('onInstalled...');
+  chrome.tabs.create({ url: 'page.html' });
+});
+
+function incrementWatchedShorts(tab) {
   // Get the current value
-  chrome.storage.local.get(['totalWatchedShorts'], function (result) {
+  chrome.storage.local.get(['totalWatchedShorts'], async function (result) {
     // Increment the value
     let totalWatchedShorts = result.totalWatchedShorts + 1;
 
@@ -13,14 +19,7 @@ function incrementWatchedShorts(tabUrl) {
     // If more than 2 shorts have been watched, redirect to YouTube
     if (totalWatchedShorts > 2) {
       // Create a notification with the URL of the short video
-      console.log('You have reached your limit', tabUrl);
-      /* chrome.notifications.create({
-        type: 'basic',
-        title: 'You have reached your limit',
-        iconUrl: 'images/popup-128.png',
-        message: `You have been redirected to YouTube's homepage. You can watch this short video later:`,
-      }); */
-      //window.location.href = 'https://www.youtube.com';
+      // TODO: redirect to YouTube homepage
     }
   });
 }
@@ -30,20 +29,21 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: incrementWatchedShorts,
-      args: [tab.url], // Pass the URL of the tab as an argument to incrementWatchedShorts
+      args: [tab], // Pass the tab as an argument to incrementWatchedShorts
     });
   }
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   console.log('message received', message);
   if (message.action === 'timeLimitExceeded') {
-    console.log('You have reached your limit');
-    chrome.notifications.create('ss', {
-      type: 'basic',
-      title: 'You have reached your limit',
-      iconUrl: 'images/popup-128.png',
-      message: `You have been redirected to YouTube's homepage. You can watch this short video later:`,
+    console.log('-You have reached your limit-V');
+    // This will open a tab-specific side panel only on the current tab.
+    await chrome.sidePanel.open({ tabId: message.data.tabId });
+    await chrome.sidePanel.setOptions({
+      tabId: message.data.tabId,
+      path: 'sidepanelYtSummary.html',
+      enabled: true,
     });
   }
 });
