@@ -21,6 +21,7 @@
   "content_scripts": [
     {
       "js": ["contentScript.js"],
+      "css": ["styles.css"],
       "matches": ["https://*.youtube.com/*"]
     }
   ],
