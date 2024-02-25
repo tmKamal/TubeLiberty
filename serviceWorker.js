@@ -22,12 +22,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   console.log('message received', message);
-  if (message.action === 'timeLimitExceeded') {
+  console.log('sender', sender);
+  if (message.action === 'openSideBar') {
     console.log('-You have reached your limit-V');
     // This will open a tab-specific side panel only on the current tab.
-    await chrome.sidePanel.open({ tabId: message.data.tabId });
+    await chrome.sidePanel.open({ tabId: sender.tab.id });
     await chrome.sidePanel.setOptions({
-      tabId: message.data.tabId,
+      tabId: sender.tab.id,
       path: 'sidepanelYtSummary.html',
       enabled: true,
     });

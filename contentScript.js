@@ -16,6 +16,10 @@
 
     document.getElementById('open-settings-btn').addEventListener('click', function () {
       console.log('Settings button clicked!');
+      // Send the message along with tab details
+      chrome.runtime.sendMessage({ action: 'openSideBar' }, function (response) {
+        console.log('final-response', response);
+      });
     });
   }
 
