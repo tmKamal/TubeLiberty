@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   resetButton.addEventListener('click', function () {
     console.log('reset button clicked');
-    chrome.storage.local.set({ totalWatchedShorts: 0, showTimeBanner: false }, function () {
+    chrome.storage.local.set({ totalWatchedShorts: 0, totalWatchTime: 0, showTimeBanner: false }, function () {
       alert('Limits have been reset.');
       userInput.value = '';
       resetButton.disabled = true;

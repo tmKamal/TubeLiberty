@@ -1,15 +1,43 @@
-// Add totalWatchedShorts into local storage if it doesn't exist
-chrome.storage.local.get(['totalWatchedShorts', 'lastRestTime'], function (result) {
-  if (result.totalWatchedShorts === undefined) {
-    chrome.storage.local.set({ totalWatchedShorts: 0 });
-  }
-  if (result.lastRestTime === undefined) {
-    chrome.storage.local.set({ lastRestTime: Date.now() });
-  }
-});
-
-chrome.storage.local.set({ totalWatchedShorts: 0 });
+const watchTimeCheckInterval = 10 * 1000; // 10 seconds
+const currentDate = new Date().toDateString();
 let debounceTimeout;
+let startTime;
+
+// Add totalWatchedShorts into local storage if it doesn't exist
+chrome.storage.local.get(
+  ['totalWatchedShorts', 'totalWatchedTime', 'lastRestTime', 'lastOpenedDate'],
+  function (result) {
+    if (result.totalWatchedShorts === undefined) {
+      chrome.storage.local.set({ totalWatchedShorts: 0 });
+    }
+    if (result.lastRestTime === undefined) {
+      chrome.storage.local.set({ lastRestTime: Date.now() });
+    }
+    if (result.totalWatchedTime === undefined) {
+      chrome.storage.local.set({ totalWatchedTime: 0 });
+    }
+    if (result.lastOpenedDate === undefined) {
+      chrome.storage.local.set({ lastOpenedDate: new Date().toDateString() });
+    } else {
+      checkAndresetValuesOnNewDay(result.lastOpenedDate);
+    }
+  }
+);
+
+function checkAndresetValuesOnNewDay(lastOpenedDate) {
+  console.log('checking if a new day has started..');
+  // If the dates are different, it means a new day has started
+  if (lastOpenedDate !== currentDate) {
+    console.log('New day has started');
+    // Reset the values
+    chrome.storage.local.set({
+      totalWatchTime: 0,
+      showShortBanner: false,
+      showTimeBanner: false,
+      lastOpenedDate: currentDate, // Update the last opened date
+    });
+  }
+}
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url.includes('youtube.com/shorts')) {
@@ -78,6 +106,60 @@ function incrementWatchedShorts(tab) {
   });
 }
 
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+  // If the user is watching a regular video
+  if (tab.url.includes('watch?v=')) {
+    console.log('watching a regular video');
+    if (changeInfo.status === 'loading') {
+      // The video has started loading, record the start time
+      startTime = Date.now();
+      checkTotalWatchTime(tabId);
+    } else if ((changeInfo.status === 'complete' || changeInfo.url) && startTime) {
+      // The video has finished loading or the URL has changed, calculate the watch time
+      const watchTime = Date.now() - startTime;
+      // Get the current total watch time
+      chrome.storage.local.get(['totalWatchTime'], function (result) {
+        console.log('totalWatchedTime', result);
+        let totalWatchTime = result.totalWatchTime || 0;
+        // Add the watch time to the total watch time
+        totalWatchTime += watchTime;
+        // Save the new total watch time
+        chrome.storage.local.set({ totalWatchTime: totalWatchTime });
+      });
+      // Reset the start time
+      startTime = null;
+    }
+  }
+});
+
 function isYouTubeVideoUrl(url) {
   return url.includes('youtube.com/watch');
 }
+
+function checkTotalWatchTime(tabId) {
+  chrome.tabs.get(tabId, function (tab) {
+    if (isYouTubeVideoUrl(tab.url)) {
+      // The user is watching a regular video, increment the total watch time by 10 seconds
+      chrome.storage.local.get(['totalWatchTime'], function (result) {
+        let totalWatchTime = result.totalWatchTime || 0;
+        totalWatchTime += watchTimeCheckInterval; // Add 10 seconds to the total watch time
+        chrome.storage.local.set({ totalWatchTime: totalWatchTime });
+
+        // If the total watch time exceeds 1 minutes, redirect to the YouTube homepage
+        console.log('lets check::', totalWatchTime);
+        if (totalWatchTime > 3 * 60 * 1000) {
+          redirectToHomePageAndNotify(tabId, 'time');
+        }
+      });
+    }
+  });
+}
+
+// Check the total watch time every 10 seconds
+setInterval(function () {
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    console.log('checking total watch time 10 seconds later..', tabs);
+    if (tabs.length === 0) return;
+    checkTotalWatchTime(tabs[0].id);
+  });
+}, watchTimeCheckInterval);

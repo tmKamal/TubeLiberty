@@ -1,28 +1,37 @@
-/* styles.css */
 #custom-banner {
   position: fixed;
-  bottom: 20px;
+  z-index: 1000;
   left: 50%;
-  transform: translateX(-50%);
-  background-color: #f44336;
-  color: #fff;
-  padding: 10px 20px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
   border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 9999;
+  width: 300px;
   text-align: center;
 }
 
+#custom-banner .message {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
 #open-settings-btn {
-  background-color: #4caf50;
-  color: white;
   padding: 10px 20px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#close-banner-btn {
+  padding: 10px 20px;
+  background-color: #aaa;
+  color: #fff;
   border: none;
   border-radius: 5px;
   cursor: pointer;
   margin-top: 10px;
-}
-
-#open-settings-btn:hover {
-  background-color: #45a049;
 }

@@ -9,8 +9,10 @@
     var customBanner = document.createElement('div');
     customBanner.id = 'custom-banner';
     customBanner.innerHTML = `
-            <div class="message">Oops! You have exceeded your daily time limit on YouTube.</div>
-            <button id="open-settings-btn">Open Settings</button>
+            <div class="message">Oops! It seems you've reached your current time limit for this session.</br>
+            Remember, it's best not to manually lift the limit yourself. It will automatically get lifted after couple of hours.</div>
+            <button id="open-settings-btn">Reset Limits Manually</button>
+            <button id="close-banner-btn">Close</button>
         `;
     document.body.appendChild(customBanner);
 
@@ -20,6 +22,11 @@
       chrome.runtime.sendMessage({ action: 'openSideBar' }, function (response) {
         console.log('final-response', response);
       });
+    });
+
+    document.getElementById('close-banner-btn').addEventListener('click', function () {
+      console.log('Close button clicked!');
+      customBanner.style.display = 'none';
     });
   }
 
