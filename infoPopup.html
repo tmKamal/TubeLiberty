@@ -1,13 +1,88 @@
-<!-- popup.html -->
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>YouTube Time Limit</title>
-    <script src="infoPopup.js"></script>
-  </head>
-  <body>
-    <h1>YouTube Time Limit</h1>
-    <p id="message"></p>
-    <button id="show">Show</button>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TubeLiberty</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="infoPopup.css">
+</head>
+<body>
+  <div class="popup">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="logo">
+        <span class="logo-icon">🎯</span>
+        <span class="logo-text">TubeLiberty</span>
+      </div>
+    </header>
+
+    <!-- Stats Content -->
+    <main class="popup-content">
+      <!-- Time Progress -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-icon">⏱️</span>
+          <span class="stat-title">Watch Time</span>
+        </div>
+        <div class="stat-value-row">
+          <span class="stat-current" id="time-current">0:00</span>
+          <span class="stat-separator">/</span>
+          <span class="stat-limit" id="time-limit">3:00</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill safe" id="time-progress" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Shorts Progress -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-icon">📱</span>
+          <span class="stat-title">Shorts</span>
+        </div>
+        <div class="stat-value-row">
+          <span class="stat-current" id="shorts-current">0</span>
+          <span class="stat-separator">/</span>
+          <span class="stat-limit" id="shorts-limit">5</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill safe" id="shorts-progress" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Videos Count -->
+      <div class="stat-card stat-card-simple">
+        <div class="stat-header">
+          <span class="stat-icon">🎬</span>
+          <span class="stat-title">Videos Today</span>
+        </div>
+        <span class="stat-count" id="videos-count">0</span>
+      </div>
+
+      <!-- Streaks -->
+      <div class="streaks-row">
+        <div class="streak-mini" id="time-streak-mini">
+          <span class="streak-mini-icon">🔥</span>
+          <span class="streak-mini-value" id="time-streak-value">0</span>
+          <span class="streak-mini-label">Time</span>
+        </div>
+        <div class="streak-mini" id="shorts-streak-mini">
+          <span class="streak-mini-icon">🔥</span>
+          <span class="streak-mini-value" id="shorts-streak-value">0</span>
+          <span class="streak-mini-label">Shorts</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <button class="btn btn-primary btn-full" id="btn-open-dashboard">
+        Open Dashboard
+      </button>
+    </footer>
+  </div>
+
+  <script src="infoPopup.js"></script>
+</body>
 </html>

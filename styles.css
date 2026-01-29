@@ -1,37 +1,363 @@
-#custom-banner {
+/* ===========================================
+   TubeLiberty Banner Styles
+   Injected into YouTube pages
+   =========================================== */
+
+/* CSS Variables for Banner */
+:root {
+  --tl-primary: #6366F1;
+  --tl-primary-hover: #4F46E5;
+  --tl-success: #10B981;
+  --tl-success-light: #D1FAE5;
+  --tl-warning: #F59E0B;
+  --tl-warning-light: #FEF3C7;
+  --tl-danger: #EF4444;
+  --tl-danger-light: #FEE2E2;
+  --tl-neutral-100: #F1F5F9;
+  --tl-neutral-200: #E2E8F0;
+  --tl-neutral-300: #CBD5E1;
+  --tl-neutral-500: #64748B;
+  --tl-neutral-700: #334155;
+  --tl-neutral-800: #1E293B;
+  --tl-white: #FFFFFF;
+  --tl-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --tl-radius: 16px;
+  --tl-radius-sm: 10px;
+  --tl-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Modal Backdrop */
+.tubeliberty-modal-backdrop {
   position: fixed;
-  z-index: 1000;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 5px;
-  width: 300px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.tubeliberty-modal-backdrop.visible {
+  opacity: 1;
+}
+
+/* Modal Container */
+.tubeliberty-modal {
+  background-color: var(--tl-white);
+  border-radius: var(--tl-radius);
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: var(--tl-shadow);
+  text-align: center;
+  font-family: var(--tl-font);
+  transform: translateY(20px);
+  transition: transform 0.3s ease;
+}
+
+.tubeliberty-modal-backdrop.visible .tubeliberty-modal {
+  transform: translateY(0);
+}
+
+/* Success Modal Variant */
+.tubeliberty-modal-success {
+  border: 2px solid var(--tl-success);
+}
+
+/* Modal Icon */
+.tubeliberty-modal-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  line-height: 1;
+}
+
+/* Modal Title */
+.tubeliberty-modal-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--tl-neutral-800);
+  margin: 0 0 12px 0;
+  line-height: 1.3;
+}
+
+/* Modal Description */
+.tubeliberty-modal-description {
+  font-size: 15px;
+  color: var(--tl-neutral-500);
+  margin: 0 0 24px 0;
+  line-height: 1.6;
+}
+
+/* Modal Note */
+.tubeliberty-modal-note {
+  font-size: 14px;
+  color: var(--tl-neutral-500);
+  margin: 0 0 20px 0;
+  font-style: italic;
+}
+
+/* Modal Footer */
+.tubeliberty-modal-footer {
+  font-size: 12px;
+  color: var(--tl-neutral-500);
+  margin: 20px 0 0 0;
+}
+
+/* Option Cards */
+.tubeliberty-option-card {
+  background-color: var(--tl-neutral-100);
+  border-radius: var(--tl-radius-sm);
+  padding: 16px;
+  margin-bottom: 12px;
   text-align: center;
 }
 
-#custom-banner .message {
-  margin-bottom: 10px;
+.tubeliberty-option-whitelist {
+  background-color: var(--tl-success-light);
+  border: 1px solid var(--tl-success);
+}
+
+.tubeliberty-option-increase {
+  background-color: var(--tl-neutral-100);
+  border: 1px solid var(--tl-neutral-200);
+}
+
+.tubeliberty-option-danger {
+  background-color: var(--tl-warning-light);
+  border: 1px solid var(--tl-warning);
+}
+
+.tubeliberty-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tubeliberty-option-icon {
+  font-size: 18px;
+}
+
+.tubeliberty-option-label {
   font-size: 14px;
+  font-weight: 600;
+  color: var(--tl-neutral-700);
 }
 
-#open-settings-btn {
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
+.tubeliberty-option-hint {
+  font-size: 12px;
+  color: var(--tl-neutral-500);
+  margin: 8px 0 0 0;
 }
 
-#close-banner-btn {
-  padding: 10px 20px;
-  background-color: #aaa;
-  color: #fff;
+.tubeliberty-warning-text {
+  color: var(--tl-danger) !important;
+  font-weight: 500;
+}
+
+/* Info Box */
+.tubeliberty-info-box {
+  background-color: var(--tl-neutral-100);
+  border-radius: var(--tl-radius-sm);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.tubeliberty-info-box p {
+  font-size: 14px;
+  color: var(--tl-neutral-700);
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.tubeliberty-info-box p:last-child {
+  margin-bottom: 0;
+}
+
+/* Recommended Text */
+.tubeliberty-recommended {
+  font-size: 12px;
+  color: var(--tl-success);
+  font-weight: 500;
+  margin: 4px 0 0 0;
+}
+
+/* Buttons */
+.tubeliberty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  font-family: var(--tl-font);
+  font-size: 14px;
+  font-weight: 600;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
-  margin-top: 10px;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tubeliberty-btn:hover {
+  transform: translateY(-1px);
+}
+
+.tubeliberty-btn:active {
+  transform: translateY(0);
+}
+
+/* Primary Button */
+.tubeliberty-btn-primary {
+  background-color: var(--tl-primary);
+  color: var(--tl-white);
+}
+
+.tubeliberty-btn-primary:hover {
+  background-color: var(--tl-primary-hover);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+/* Secondary Button */
+.tubeliberty-btn-secondary {
+  background-color: var(--tl-white);
+  color: var(--tl-neutral-700);
+  border: 1px solid var(--tl-neutral-300);
+}
+
+.tubeliberty-btn-secondary:hover {
+  background-color: var(--tl-neutral-100);
+  border-color: var(--tl-neutral-500);
+}
+
+/* Ghost Button */
+.tubeliberty-btn-ghost {
+  background-color: transparent;
+  color: var(--tl-neutral-500);
+  padding: 10px 20px;
+}
+
+.tubeliberty-btn-ghost:hover {
+  background-color: var(--tl-neutral-100);
+  color: var(--tl-neutral-700);
+  transform: none;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .tubeliberty-modal {
+    background-color: #1E293B;
+  }
+
+  .tubeliberty-modal-title {
+    color: #F1F5F9;
+  }
+
+  .tubeliberty-modal-description,
+  .tubeliberty-modal-footer,
+  .tubeliberty-modal-note {
+    color: #94A3B8;
+  }
+
+  .tubeliberty-option-card {
+    background-color: #334155;
+  }
+
+  .tubeliberty-option-whitelist {
+    background-color: rgba(16, 185, 129, 0.15);
+    border-color: var(--tl-success);
+  }
+
+  .tubeliberty-option-increase {
+    background-color: #334155;
+    border-color: #475569;
+  }
+
+  .tubeliberty-option-danger {
+    background-color: rgba(245, 158, 11, 0.15);
+    border-color: var(--tl-warning);
+  }
+
+  .tubeliberty-option-label {
+    color: #F1F5F9;
+  }
+
+  .tubeliberty-option-hint {
+    color: #94A3B8;
+  }
+
+  .tubeliberty-info-box {
+    background-color: #334155;
+  }
+
+  .tubeliberty-info-box p {
+    color: #E2E8F0;
+  }
+
+  .tubeliberty-btn-secondary {
+    background-color: #334155;
+    color: #F1F5F9;
+    border-color: #475569;
+  }
+
+  .tubeliberty-btn-secondary:hover {
+    background-color: #475569;
+    border-color: #64748B;
+  }
+
+  .tubeliberty-btn-ghost {
+    color: #94A3B8;
+  }
+
+  .tubeliberty-btn-ghost:hover {
+    background-color: #334155;
+    color: #F1F5F9;
+  }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 480px) {
+  .tubeliberty-modal {
+    padding: 24px;
+    margin: 12px;
+  }
+
+  .tubeliberty-modal-icon {
+    font-size: 40px;
+  }
+
+  .tubeliberty-modal-title {
+    font-size: 20px;
+  }
+
+  .tubeliberty-modal-description {
+    font-size: 14px;
+  }
+}
+
+/* Animation Keyframes */
+@keyframes tubeliberty-fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tubeliberty-slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
