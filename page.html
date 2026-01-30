@@ -1,9 +1,155 @@
 <!DOCTYPE html>
-<html>
-  <body>
-    <h1>This is an extension page</h1>
-    <p>Click on the button below to open the side panel</p>
-    <button id="openSidePanel">Open side panel</button>
-    <script src="script.js" type="module"></script>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to TubeLiberty</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <div class="onboarding">
+    <!-- Step 1: Welcome -->
+    <section class="onboarding-step active" id="step-1">
+      <div class="onboarding-content">
+        <div class="onboarding-icon">🎯</div>
+        <h1 class="onboarding-title">Welcome to TubeLiberty</h1>
+        <p class="onboarding-subtitle">Take back control of your time.</p>
+
+        <div class="onboarding-description">
+          <p>YouTube is designed to keep you scrolling endlessly.</p>
+          <p>TubeLiberty helps you set boundaries and stick to them.</p>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="btn-start">
+          Get Started
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 2: How It Works -->
+    <section class="onboarding-step" id="step-2">
+      <div class="onboarding-content">
+        <h2 class="onboarding-title">How TubeLiberty Works</h2>
+
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">⏱️</div>
+            <h3 class="feature-title">Time Limit</h3>
+            <p class="feature-description">
+              Set a daily limit for regular videos. When you reach it, you'll be gently redirected.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">📱</div>
+            <h3 class="feature-title">Shorts Limit</h3>
+            <p class="feature-description">
+              Limit how many shorts you can watch. Shorts are designed to be addictive - we help you resist.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🎬</div>
+            <h3 class="feature-title">Whitelist Videos</h3>
+            <p class="feature-description">
+              Watching something important? Whitelist it to finish without breaking your streak.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🔥</div>
+            <h3 class="feature-title">Build Streaks</h3>
+            <p class="feature-description">
+              Stay within your limits day after day. Watch your streaks grow as your self-control strengthens.
+            </p>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="btn-continue-2">
+          Continue
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 3: Your Limits -->
+    <section class="onboarding-step" id="step-3">
+      <div class="onboarding-content">
+        <h2 class="onboarding-title">Your Default Limits</h2>
+        <p class="onboarding-subtitle">Start strict. Build discipline.</p>
+
+        <div class="limits-display">
+          <div class="limit-item">
+            <div class="limit-icon">⏱️</div>
+            <div class="limit-info">
+              <span class="limit-value">3 minutes</span>
+              <span class="limit-label">Daily video time</span>
+            </div>
+          </div>
+
+          <div class="limit-item">
+            <div class="limit-icon">📱</div>
+            <div class="limit-info">
+              <span class="limit-value">5 shorts</span>
+              <span class="limit-label">Per 2-hour period</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tip-box">
+          <span class="tip-icon">💡</span>
+          <p class="tip-text">
+            These limits are intentionally strict. Building discipline is easier with tight boundaries. You can always request more time if needed - but it will break your streak.
+          </p>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="btn-continue-3">
+          Continue
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 4: Ready -->
+    <section class="onboarding-step" id="step-4">
+      <div class="onboarding-content">
+        <div class="onboarding-icon">✅</div>
+        <h2 class="onboarding-title">You're All Set!</h2>
+        <p class="onboarding-subtitle">TubeLiberty is now protecting your focus.</p>
+
+        <div class="ready-info">
+          <div class="ready-item">
+            <span class="ready-icon">📌</span>
+            <p>Pin the extension to your toolbar for quick access to your stats.</p>
+          </div>
+          <div class="ready-item">
+            <span class="ready-icon">💪</span>
+            <p>Every day you stay within limits is a win. Start building your streak!</p>
+          </div>
+          <div class="ready-item">
+            <span class="ready-icon">🎬</span>
+            <p>If you're watching something valuable, you can whitelist it to finish.</p>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="btn-finish">
+          Go to YouTube
+        </button>
+
+        <p class="onboarding-footer">
+          Your journey to mindful YouTube use starts now.
+        </p>
+      </div>
+    </section>
+
+    <!-- Progress Dots -->
+    <div class="progress-dots">
+      <span class="dot active" data-step="1"></span>
+      <span class="dot" data-step="2"></span>
+      <span class="dot" data-step="3"></span>
+      <span class="dot" data-step="4"></span>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
 </html>

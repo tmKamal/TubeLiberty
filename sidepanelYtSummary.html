@@ -1,15 +1,231 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>TubeLibery Sidepanel</title>
-    <link rel="stylesheet" type="text/css" href="sidepanel.css" />
-    <script src="sidepanel.js"></script>
-  </head>
-  <body>
-    <h1>Tube Libery</h1>
-    <h3>Time to apologize for your YouTube sins! Quickly, type the secret phrase below to reset your limits!</h3>
-    <p id="promiseText">Please reset my limits, this time I'll use youtube for educational purposes only. I Promise</p>
-    <input type="text" id="userInput" placeholder="Type the promise here" />
-    <button id="resetButton" disabled>Reset</button>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TubeLiberty Dashboard</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="sidepanel">
+    <!-- Header -->
+    <header class="sidepanel-header">
+      <div class="logo">
+        <span class="logo-icon">🎯</span>
+        <span class="logo-text">TubeLiberty</span>
+      </div>
+    </header>
+
+    <!-- Main Dashboard View -->
+    <main id="dashboard-view" class="sidepanel-content">
+      <!-- Today's Usage Section -->
+      <section class="card">
+        <div class="section-header">
+          <h2 class="section-title">Today's Usage</h2>
+        </div>
+
+        <!-- Watch Time Progress -->
+        <div class="progress-container">
+          <div class="progress-header">
+            <span class="progress-label">
+              <span class="progress-icon">⏱️</span>
+              Watch Time
+            </span>
+            <span class="progress-value" id="time-value">0:00 / 3:00</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill safe" id="time-progress" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Shorts Progress -->
+        <div class="progress-container">
+          <div class="progress-header">
+            <span class="progress-label">
+              <span class="progress-icon">📱</span>
+              Shorts
+            </span>
+            <span class="progress-value" id="shorts-value">0 / 5</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill safe" id="shorts-progress" style="width: 0%"></div>
+          </div>
+          <div class="progress-subtext" id="shorts-reset-time"></div>
+        </div>
+
+        <!-- Videos Watched -->
+        <div class="stat-row">
+          <span class="stat-label">
+            <span class="stat-icon">🎬</span>
+            Videos Watched
+          </span>
+          <span class="stat-value" id="videos-value">0</span>
+        </div>
+      </section>
+
+      <!-- Streaks Section -->
+      <section class="card">
+        <div class="section-header">
+          <h2 class="section-title">Streaks</h2>
+          <span class="streak-fire" id="streak-fire">🔥</span>
+        </div>
+
+        <div class="streak-container">
+          <div class="streak-card" id="time-streak-card">
+            <div class="streak-count" id="time-streak-count">0</div>
+            <div class="streak-label">Days</div>
+            <div class="streak-type">Time Control</div>
+          </div>
+          <div class="streak-card" id="shorts-streak-card">
+            <div class="streak-count" id="shorts-streak-count">0</div>
+            <div class="streak-label">Days</div>
+            <div class="streak-type">Shorts Control</div>
+          </div>
+        </div>
+
+        <p class="streak-info">
+          Streaks increase daily when you stay within your limits without requesting more time or shorts.
+        </p>
+      </section>
+
+      <!-- History Section -->
+      <section class="card">
+        <div class="section-header">
+          <h2 class="section-title">History</h2>
+        </div>
+
+        <ul class="history-list" id="history-list">
+          <li class="history-empty">No history yet. Check back tomorrow!</li>
+        </ul>
+      </section>
+
+      <!-- Manual Controls Section -->
+      <section class="card card-controls">
+        <div class="section-header">
+          <h2 class="section-title">Manual Controls</h2>
+        </div>
+
+        <p class="controls-warning">
+          ⚠️ Using these controls will break your streak
+        </p>
+
+        <div class="controls-buttons">
+          <button class="btn btn-secondary btn-full" id="btn-increase-time">
+            <span>Add 5 Minutes</span>
+          </button>
+          <button class="btn btn-secondary btn-full" id="btn-increase-shorts">
+            <span>Add 3 Shorts</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Increase Time Limit View -->
+    <div id="increase-time-view" class="sidepanel-content hidden">
+      <div class="card card-warning">
+        <div class="warning-icon">⚠️</div>
+        <h2 class="warning-title">Increase Time Limit?</h2>
+
+        <div class="warning-stats">
+          <p>This will <strong>break your streak</strong>.</p>
+          <p class="streak-display">
+            Current streak: <span id="current-time-streak">0</span> days 🔥
+          </p>
+        </div>
+
+        <div class="commitment-section">
+          <p class="commitment-label">Type this to confirm:</p>
+          <div class="commitment-box">
+            <p class="commitment-text" id="time-commitment-text"></p>
+          </div>
+          <input
+            type="text"
+            class="input"
+            id="time-commitment-input"
+            placeholder="Type the text above exactly..."
+            autocomplete="off"
+          >
+          <div class="match-indicator not-matching" id="time-match-indicator">
+            <span class="match-icon">○</span>
+            <span class="match-text">Type the text exactly to enable the button</span>
+          </div>
+        </div>
+
+        <div class="warning-actions">
+          <button class="btn btn-danger btn-full" id="btn-confirm-time" disabled>
+            Add 5 More Minutes
+          </button>
+          <button class="btn btn-ghost btn-full" id="btn-cancel-time">
+            ← Go Back
+          </button>
+        </div>
+
+        <p class="warning-footer">
+          Is more YouTube really worth losing your progress?
+        </p>
+      </div>
+    </div>
+
+    <!-- Increase Shorts Limit View -->
+    <div id="increase-shorts-view" class="sidepanel-content hidden">
+      <div class="card card-danger">
+        <div class="warning-icon">🚫</div>
+        <h2 class="warning-title">More Shorts? Really?</h2>
+
+        <div class="harsh-message">
+          <p>Shorts are engineered to be <strong>addictive</strong>.</p>
+          <p>They provide <strong>zero lasting value</strong>.</p>
+          <p>Every short you skip is a small victory.</p>
+        </div>
+
+        <div class="warning-stats">
+          <p class="streak-display">
+            Your streak: <span id="current-shorts-streak">0</span> days 🔥
+          </p>
+          <p class="streak-warning">About to become: <strong>0 days</strong></p>
+        </div>
+
+        <div class="commitment-section">
+          <p class="commitment-label">If you're sure, type <strong>EXACTLY</strong>:</p>
+          <div class="commitment-box commitment-box-harsh">
+            <p class="commitment-text" id="shorts-commitment-text"></p>
+          </div>
+          <input
+            type="text"
+            class="input"
+            id="shorts-commitment-input"
+            placeholder="Type the text above exactly..."
+            autocomplete="off"
+          >
+          <div class="match-indicator not-matching" id="shorts-match-indicator">
+            <span class="match-icon">○</span>
+            <span class="match-text">Type the text exactly to enable the button</span>
+          </div>
+        </div>
+
+        <div class="warning-actions">
+          <button class="btn btn-danger btn-full" id="btn-confirm-shorts" disabled>
+            Add 3 More Shorts
+          </button>
+          <button class="btn btn-ghost btn-full" id="btn-cancel-shorts">
+            ← Go Back (Recommended)
+          </button>
+        </div>
+
+        <p class="warning-footer">
+          Think about what you could do instead with this time.
+        </p>
+      </div>
+    </div>
+
+    <!-- Success Message -->
+    <div id="success-toast" class="toast hidden">
+      <span class="toast-icon">✓</span>
+      <span class="toast-message" id="toast-message">Limit increased</span>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
 </html>
