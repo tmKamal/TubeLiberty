@@ -23,8 +23,9 @@
   /**
    * Create the time limit exceeded banner
    */
-  function createTimeBanner() {
-    const videoUrl = getCurrentVideoUrl();
+  function createTimeBanner(savedVideoUrl = null) {
+    // Use current video URL if on watch page, otherwise use saved URL from redirect
+    const videoUrl = getCurrentVideoUrl() || savedVideoUrl;
 
     const banner = document.createElement('div');
     banner.id = 'tubeliberty-banner';
@@ -124,7 +125,38 @@
   }
 
   /**
-   * Create whitelisted confirmation banner
+   * Create whitelist confirmation banner (shown before whitelisting)
+   */
+  function createWhitelistConfirmBanner(videoUrl) {
+    const banner = document.createElement('div');
+    banner.id = 'tubeliberty-banner';
+    banner.className = 'tubeliberty-modal-backdrop';
+    banner.dataset.videoUrl = videoUrl;
+    banner.innerHTML = `
+      <div class="tubeliberty-modal">
+        <div class="tubeliberty-modal-icon">🤔</div>
+        <h2 class="tubeliberty-modal-title">Is this video truly important?</h2>
+        <p class="tubeliberty-modal-description">
+          Most videos feel valuable in the moment, but won't matter tomorrow.
+          Will finishing this one actually help you?
+        </p>
+
+        <div class="tubeliberty-modal-actions">
+          <button class="tubeliberty-btn tubeliberty-btn-primary" id="tubeliberty-confirm-whitelist-btn">
+            Yes, It's Important
+          </button>
+          <button class="tubeliberty-btn tubeliberty-btn-ghost" id="tubeliberty-cancel-whitelist-btn">
+            No, I'll Pass
+          </button>
+        </div>
+      </div>
+    `;
+
+    return banner;
+  }
+
+  /**
+   * Create whitelisted confirmation banner (shown after successful whitelist)
    */
   function createWhitelistedBanner() {
     const banner = document.createElement('div');
@@ -153,17 +185,19 @@
   /**
    * Show a banner
    */
-  function showBanner(type) {
+  function showBanner(type, savedVideoUrl = null) {
     // Remove existing banner
     removeBanner();
 
     let banner;
     if (type === 'time') {
-      banner = createTimeBanner();
+      banner = createTimeBanner(savedVideoUrl);
     } else if (type === 'shorts') {
       banner = createShortsBanner();
     } else if (type === 'whitelisted') {
       banner = createWhitelistedBanner();
+    } else if (type === 'whitelist-confirm') {
+      banner = createWhitelistConfirmBanner(savedVideoUrl);
     }
 
     if (!banner) return;
@@ -172,7 +206,7 @@
     currentBanner = banner;
 
     // Attach event listeners
-    attachBannerListeners(type);
+    attachBannerListeners(type, savedVideoUrl);
 
     // Animate in
     requestAnimationFrame(() => {
@@ -198,11 +232,11 @@
   /**
    * Attach event listeners to banner buttons
    */
-  function attachBannerListeners(type) {
+  function attachBannerListeners(type, savedVideoUrl = null) {
     // Whitelist button (time banner only)
     const whitelistBtn = document.getElementById('tubeliberty-whitelist-btn');
     if (whitelistBtn) {
-      whitelistBtn.addEventListener('click', handleWhitelist);
+      whitelistBtn.addEventListener('click', () => handleWhitelist(savedVideoUrl));
     }
 
     // Increase time button
@@ -230,20 +264,50 @@
         removeBanner();
       });
     }
+
+    // Confirm whitelist button (whitelist confirmation modal)
+    const confirmWhitelistBtn = document.getElementById('tubeliberty-confirm-whitelist-btn');
+    if (confirmWhitelistBtn) {
+      confirmWhitelistBtn.addEventListener('click', () => {
+        const videoUrl = currentBanner?.dataset?.videoUrl;
+        handleConfirmWhitelist(videoUrl);
+      });
+    }
+
+    // Cancel whitelist button (whitelist confirmation modal)
+    const cancelWhitelistBtn = document.getElementById('tubeliberty-cancel-whitelist-btn');
+    if (cancelWhitelistBtn) {
+      cancelWhitelistBtn.addEventListener('click', () => {
+        // Return to time limit modal
+        showBanner('time', savedVideoUrl);
+      });
+    }
   }
 
   /**
-   * Handle whitelist button click
+   * Handle whitelist button click - shows confirmation modal
    */
-  function handleWhitelist() {
-    const videoUrl = getCurrentVideoUrl();
+  function handleWhitelist(savedVideoUrl = null) {
+    const videoUrl = getCurrentVideoUrl() || savedVideoUrl;
+    if (!videoUrl) return;
+
+    // Show the confirmation modal instead of immediately whitelisting
+    showBanner('whitelist-confirm', videoUrl);
+  }
+
+  /**
+   * Handle confirmed whitelist - actually whitelists the video
+   */
+  function handleConfirmWhitelist(videoUrl) {
     if (!videoUrl) return;
 
     chrome.runtime.sendMessage(
       { action: 'whitelistVideo', videoUrl: videoUrl },
       (response) => {
         if (response?.success) {
-          showBanner('whitelisted');
+          // Clear the saved URL and redirect to the whitelisted video
+          chrome.storage.local.set({ lastBlockedVideoUrl: null });
+          window.location.href = videoUrl;
         }
       }
     );
@@ -261,10 +325,11 @@
    * Handle accept button
    */
   function handleAccept() {
-    // Clear banner flags and stay on YouTube homepage
+    // Clear banner flags and saved URL, stay on YouTube homepage
     chrome.storage.local.set({
       showTimeBanner: false,
-      showShortBanner: false
+      showShortBanner: false,
+      lastBlockedVideoUrl: null
     });
     removeBanner();
   }
@@ -273,9 +338,9 @@
    * Check storage and show appropriate banner
    */
   function checkAndShowBanner() {
-    chrome.storage.local.get(['showShortBanner', 'showTimeBanner'], (result) => {
+    chrome.storage.local.get(['showShortBanner', 'showTimeBanner', 'lastBlockedVideoUrl'], (result) => {
       if (result.showTimeBanner === true) {
-        showBanner('time');
+        showBanner('time', result.lastBlockedVideoUrl);
       } else if (result.showShortBanner === true) {
         showBanner('shorts');
       }
@@ -303,7 +368,10 @@
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'local') {
       if (changes.showTimeBanner?.newValue === true) {
-        showBanner('time');
+        // Fetch the saved video URL for whitelist option
+        chrome.storage.local.get(['lastBlockedVideoUrl'], (result) => {
+          showBanner('time', result.lastBlockedVideoUrl);
+        });
       } else if (changes.showShortBanner?.newValue === true) {
         showBanner('shorts');
       } else if (changes.showTimeBanner?.newValue === false && changes.showShortBanner?.newValue === false) {

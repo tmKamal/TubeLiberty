@@ -75,6 +75,7 @@ const elements = {
  * Initialize the side panel
  */
 function init() {
+  console.log('TubeLiberty side panel initializing...');
   cacheElements();
   attachEventListeners();
   loadStats();
@@ -148,9 +149,15 @@ function attachEventListeners() {
  */
 function loadStats() {
   chrome.runtime.sendMessage({ action: 'getStats' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Error getting stats:', chrome.runtime.lastError.message);
+      return;
+    }
     if (response) {
       currentStats = response;
       updateDashboard(response);
+    } else {
+      console.warn('No response from service worker');
     }
   });
 }

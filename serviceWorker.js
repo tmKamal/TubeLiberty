@@ -40,6 +40,7 @@ function initializeStorage() {
 
       // Whitelist
       whitelistedVideoUrl: null,
+      lastBlockedVideoUrl: null,
 
       // Streaks
       timeStreak: 0,
@@ -119,6 +120,7 @@ function handleNewDay(previousData) {
     showShortBanner: false,
     showTimeBanner: false,
     whitelistedVideoUrl: null,
+    lastBlockedVideoUrl: null,
     lastOpenedDate: today,
     lastRestTime: Date.now(),
     timeStreak: timeStreak,
@@ -139,13 +141,17 @@ initializeStorage();
 /**
  * Redirect to YouTube homepage and set banner flag
  */
-function redirectToHomePageAndNotify(tabId, type) {
+function redirectToHomePageAndNotify(tabId, type, videoUrl = null) {
   console.log('Redirecting to homepage, type:', type);
 
   if (type === 'shorts') {
     chrome.storage.local.set({ showShortBanner: true });
   } else {
-    chrome.storage.local.set({ showTimeBanner: true });
+    // Save the video URL so whitelist option can be shown on homepage
+    chrome.storage.local.set({
+      showTimeBanner: true,
+      lastBlockedVideoUrl: videoUrl
+    });
   }
 
   chrome.tabs.update(tabId, { url: 'https://www.youtube.com/' });
@@ -242,7 +248,7 @@ function checkTotalWatchTime(tabId) {
       // Check if limit exceeded
       if (totalWatchTime > timeLimit) {
         console.log('Time limit exceeded:', totalWatchTime, 'ms /', timeLimit, 'ms');
-        redirectToHomePageAndNotify(tabId, 'time');
+        redirectToHomePageAndNotify(tabId, 'time', tab.url);
       }
     });
   });
@@ -384,7 +390,8 @@ function handleGetStats(sendResponse) {
 function handleWhitelistVideo(videoUrl, sendResponse) {
   chrome.storage.local.set({
     whitelistedVideoUrl: videoUrl,
-    showTimeBanner: false
+    showTimeBanner: false,
+    lastBlockedVideoUrl: null
   }, function() {
     console.log('Video whitelisted:', videoUrl);
     sendResponse({ success: true, videoUrl: videoUrl });
@@ -401,6 +408,7 @@ function handleIncreaseTimeLimit(sendResponse) {
     chrome.storage.local.set({
       timeLimit: newLimit,
       showTimeBanner: false,
+      lastBlockedVideoUrl: null,
       timeStreakBrokenToday: true,
       timeStreak: 0 // Reset streak immediately
     }, function() {
@@ -450,6 +458,7 @@ function handleResetAllLimits(sendResponse) {
     showTimeBanner: false,
     showShortBanner: false,
     whitelistedVideoUrl: null,
+    lastBlockedVideoUrl: null,
     lastRestTime: Date.now()
   }, function() {
     console.log('All limits reset');
