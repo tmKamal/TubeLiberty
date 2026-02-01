@@ -23,6 +23,13 @@ function initializeStorage() {
 
   chrome.storage.local.get(null, function(result) {
     const defaults = {
+      // Configurable settings (user preferences)
+      configTimeLimit: TIME_LIMIT_MS,
+      configShortsLimit: SHORTS_LIMIT,
+      configShortsPeriodHours: SHORTS_PERIOD_HOURS,
+      configExtraTime: EXTRA_TIME_MS,
+      configExtraShorts: EXTRA_SHORTS,
+
       // Usage tracking
       totalWatchedShorts: 0,
       totalWatchedTime: 0,
@@ -110,13 +117,17 @@ function handleNewDay(previousData) {
     shortsStreak = 0;
   }
 
+  // Use configured defaults for new day limits
+  const configTimeLimit = previousData.configTimeLimit || TIME_LIMIT_MS;
+  const configShortsLimit = previousData.configShortsLimit || SHORTS_LIMIT;
+
   // Reset daily values
   chrome.storage.local.set({
     totalWatchedTime: 0,
     totalWatchedShorts: 0,
     totalVideosWatched: 0,
-    timeLimit: TIME_LIMIT_MS,
-    shortsLimit: SHORTS_LIMIT,
+    timeLimit: configTimeLimit,
+    shortsLimit: configShortsLimit,
     showShortBanner: false,
     showTimeBanner: false,
     whitelistedVideoUrl: null,
@@ -164,17 +175,19 @@ function incrementWatchedShorts(tab) {
   chrome.storage.local.get([
     'totalWatchedShorts',
     'lastRestTime',
-    'shortsLimit'
+    'shortsLimit',
+    'configShortsPeriodHours'
   ], function(result) {
     let totalWatchedShorts = (result.totalWatchedShorts || 0) + 1;
     const lastRestTime = result.lastRestTime || Date.now();
     const shortsLimit = result.shortsLimit || SHORTS_LIMIT;
+    const shortsPeriodHours = result.configShortsPeriodHours || SHORTS_PERIOD_HOURS;
 
-    // Check if shorts period has expired (2 hours)
+    // Check if shorts period has expired
     const currentTime = Date.now();
     const timeDifferenceHours = (currentTime - lastRestTime) / 1000 / 60 / 60;
 
-    if (timeDifferenceHours > SHORTS_PERIOD_HOURS) {
+    if (timeDifferenceHours > shortsPeriodHours) {
       // Reset the period
       totalWatchedShorts = 1;
       chrome.storage.local.set({
@@ -318,6 +331,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleGetStats(sendResponse);
       return true; // Keep channel open for async response
 
+    case 'getSettings':
+      handleGetSettings(sendResponse);
+      return true;
+
+    case 'saveSettings':
+      handleSaveSettings(message.settings, sendResponse);
+      return true;
+
     case 'whitelistVideo':
       handleWhitelistVideo(message.videoUrl, sendResponse);
       return true;
@@ -353,6 +374,8 @@ async function handleOpenSideBar(tabId, context) {
  */
 function handleGetStats(sendResponse) {
   chrome.storage.local.get(null, function(result) {
+    const shortsPeriodHours = result.configShortsPeriodHours || SHORTS_PERIOD_HOURS;
+
     const stats = {
       // Usage
       totalWatchedTime: result.totalWatchedTime || 0,
@@ -365,7 +388,7 @@ function handleGetStats(sendResponse) {
 
       // Time remaining in shorts period
       lastRestTime: result.lastRestTime || Date.now(),
-      shortsPeriodHours: SHORTS_PERIOD_HOURS,
+      shortsPeriodHours: shortsPeriodHours,
 
       // Streaks
       timeStreak: result.timeStreak || 0,
@@ -381,6 +404,44 @@ function handleGetStats(sendResponse) {
     };
 
     sendResponse(stats);
+  });
+}
+
+/**
+ * Get current settings
+ */
+function handleGetSettings(sendResponse) {
+  chrome.storage.local.get([
+    'configTimeLimit',
+    'configShortsLimit',
+    'configShortsPeriodHours',
+    'configExtraTime',
+    'configExtraShorts'
+  ], function(result) {
+    const settings = {
+      timeLimit: result.configTimeLimit || TIME_LIMIT_MS,
+      shortsLimit: result.configShortsLimit || SHORTS_LIMIT,
+      shortsPeriodHours: result.configShortsPeriodHours || SHORTS_PERIOD_HOURS,
+      extraTime: result.configExtraTime || EXTRA_TIME_MS,
+      extraShorts: result.configExtraShorts || EXTRA_SHORTS
+    };
+    sendResponse(settings);
+  });
+}
+
+/**
+ * Save settings
+ */
+function handleSaveSettings(settings, sendResponse) {
+  chrome.storage.local.set({
+    configTimeLimit: settings.timeLimit,
+    configShortsLimit: settings.shortsLimit,
+    configShortsPeriodHours: settings.shortsPeriodHours,
+    configExtraTime: settings.extraTime,
+    configExtraShorts: settings.extraShorts
+  }, function() {
+    console.log('Settings saved:', settings);
+    sendResponse({ success: true });
   });
 }
 
@@ -402,8 +463,9 @@ function handleWhitelistVideo(videoUrl, sendResponse) {
  * Increase time limit (breaks streak)
  */
 function handleIncreaseTimeLimit(sendResponse) {
-  chrome.storage.local.get(['timeLimit', 'timeStreak'], function(result) {
-    const newLimit = (result.timeLimit || TIME_LIMIT_MS) + EXTRA_TIME_MS;
+  chrome.storage.local.get(['timeLimit', 'timeStreak', 'configExtraTime'], function(result) {
+    const extraTime = result.configExtraTime || EXTRA_TIME_MS;
+    const newLimit = (result.timeLimit || TIME_LIMIT_MS) + extraTime;
 
     chrome.storage.local.set({
       timeLimit: newLimit,
@@ -416,6 +478,7 @@ function handleIncreaseTimeLimit(sendResponse) {
       sendResponse({
         success: true,
         newLimit: newLimit,
+        extraTime: extraTime,
         streakBroken: true
       });
     });
@@ -426,8 +489,9 @@ function handleIncreaseTimeLimit(sendResponse) {
  * Increase shorts limit (breaks streak)
  */
 function handleIncreaseShortsLimit(sendResponse) {
-  chrome.storage.local.get(['shortsLimit', 'shortsStreak'], function(result) {
-    const newLimit = (result.shortsLimit || SHORTS_LIMIT) + EXTRA_SHORTS;
+  chrome.storage.local.get(['shortsLimit', 'shortsStreak', 'configExtraShorts'], function(result) {
+    const extraShorts = result.configExtraShorts || EXTRA_SHORTS;
+    const newLimit = (result.shortsLimit || SHORTS_LIMIT) + extraShorts;
 
     chrome.storage.local.set({
       shortsLimit: newLimit,
@@ -439,6 +503,7 @@ function handleIncreaseShortsLimit(sendResponse) {
       sendResponse({
         success: true,
         newLimit: newLimit,
+        extraShorts: extraShorts,
         streakBroken: true
       });
     });

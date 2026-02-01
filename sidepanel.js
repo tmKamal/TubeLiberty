@@ -32,6 +32,7 @@ const elements = {
   dashboardView: null,
   increaseTimeView: null,
   increaseShortsView: null,
+  settingsView: null,
 
   // Dashboard elements
   timeValue: null,
@@ -47,12 +48,27 @@ const elements = {
   historyList: null,
 
   // Buttons
+  btnSettings: null,
   btnIncreaseTime: null,
   btnIncreaseShorts: null,
+  btnIncreaseTimeText: null,
+  btnIncreaseShortsText: null,
   btnConfirmTime: null,
   btnCancelTime: null,
   btnConfirmShorts: null,
   btnCancelShorts: null,
+  confirmTimeText: null,
+  confirmShortsText: null,
+  btnSaveSettings: null,
+  btnCancelSettings: null,
+
+  // Settings inputs
+  settingTimeLimit: null,
+  settingShortsLimit: null,
+  settingShortsPeriod: null,
+  settingExtraTime: null,
+  settingExtraShorts: null,
+  settingsForm: null,
 
   // Commitment inputs
   timeCommitmentText: null,
@@ -80,6 +96,14 @@ function init() {
   attachEventListeners();
   loadStats();
 
+  // Check if we should open to settings view
+  chrome.storage.local.get(['openToSettings'], (result) => {
+    if (result.openToSettings) {
+      chrome.storage.local.remove('openToSettings');
+      showSettingsView();
+    }
+  });
+
   // Refresh stats periodically
   setInterval(loadStats, 5000);
 }
@@ -91,6 +115,7 @@ function cacheElements() {
   elements.dashboardView = document.getElementById('dashboard-view');
   elements.increaseTimeView = document.getElementById('increase-time-view');
   elements.increaseShortsView = document.getElementById('increase-shorts-view');
+  elements.settingsView = document.getElementById('settings-view');
 
   elements.timeValue = document.getElementById('time-value');
   elements.timeProgress = document.getElementById('time-progress');
@@ -104,12 +129,26 @@ function cacheElements() {
   elements.shortsStreakCard = document.getElementById('shorts-streak-card');
   elements.historyList = document.getElementById('history-list');
 
+  elements.btnSettings = document.getElementById('btn-settings');
   elements.btnIncreaseTime = document.getElementById('btn-increase-time');
   elements.btnIncreaseShorts = document.getElementById('btn-increase-shorts');
+  elements.btnIncreaseTimeText = document.getElementById('btn-increase-time-text');
+  elements.btnIncreaseShortsText = document.getElementById('btn-increase-shorts-text');
   elements.btnConfirmTime = document.getElementById('btn-confirm-time');
   elements.btnCancelTime = document.getElementById('btn-cancel-time');
   elements.btnConfirmShorts = document.getElementById('btn-confirm-shorts');
   elements.btnCancelShorts = document.getElementById('btn-cancel-shorts');
+  elements.confirmTimeText = document.getElementById('confirm-time-text');
+  elements.confirmShortsText = document.getElementById('confirm-shorts-text');
+  elements.btnSaveSettings = document.getElementById('btn-save-settings');
+  elements.btnCancelSettings = document.getElementById('btn-cancel-settings');
+
+  elements.settingTimeLimit = document.getElementById('setting-time-limit');
+  elements.settingShortsLimit = document.getElementById('setting-shorts-limit');
+  elements.settingShortsPeriod = document.getElementById('setting-shorts-period');
+  elements.settingExtraTime = document.getElementById('setting-extra-time');
+  elements.settingExtraShorts = document.getElementById('setting-extra-shorts');
+  elements.settingsForm = document.getElementById('settings-form');
 
   elements.timeCommitmentText = document.getElementById('time-commitment-text');
   elements.timeCommitmentInput = document.getElementById('time-commitment-input');
@@ -129,6 +168,9 @@ function cacheElements() {
  * Attach event listeners
  */
 function attachEventListeners() {
+  // Settings button
+  elements.btnSettings.addEventListener('click', () => showSettingsView());
+
   // Dashboard buttons
   elements.btnIncreaseTime.addEventListener('click', () => showIncreaseTimeView());
   elements.btnIncreaseShorts.addEventListener('click', () => showIncreaseShortsView());
@@ -142,6 +184,13 @@ function attachEventListeners() {
   elements.btnCancelShorts.addEventListener('click', () => showDashboard());
   elements.btnConfirmShorts.addEventListener('click', () => confirmIncreaseShorts());
   elements.shortsCommitmentInput.addEventListener('input', () => validateShortsCommitment());
+
+  // Settings flow
+  elements.settingsForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveSettings();
+  });
+  elements.btnCancelSettings.addEventListener('click', () => showDashboard());
 }
 
 /**
@@ -156,8 +205,37 @@ function loadStats() {
     if (response) {
       currentStats = response;
       updateDashboard(response);
+      updateButtonLabels();
     } else {
       console.warn('No response from service worker');
+    }
+  });
+}
+
+/**
+ * Update button labels based on config values
+ */
+function updateButtonLabels() {
+  chrome.runtime.sendMessage({ action: 'getSettings' }, (response) => {
+    if (response) {
+      const extraMinutes = Math.round(response.extraTime / 60000);
+      const extraShorts = response.extraShorts;
+
+      // Update dashboard buttons
+      if (elements.btnIncreaseTimeText) {
+        elements.btnIncreaseTimeText.textContent = `Add ${extraMinutes} Minutes`;
+      }
+      if (elements.btnIncreaseShortsText) {
+        elements.btnIncreaseShortsText.textContent = `Add ${extraShorts} Shorts`;
+      }
+
+      // Update confirmation view buttons
+      if (elements.confirmTimeText) {
+        elements.confirmTimeText.textContent = `Add ${extraMinutes} More Minutes`;
+      }
+      if (elements.confirmShortsText) {
+        elements.confirmShortsText.textContent = `Add ${extraShorts} More Shorts`;
+      }
     }
   });
 }
@@ -346,6 +424,7 @@ function showIncreaseShortsView() {
 function showDashboard() {
   elements.increaseTimeView.classList.add('hidden');
   elements.increaseShortsView.classList.add('hidden');
+  elements.settingsView.classList.add('hidden');
   elements.dashboardView.classList.remove('hidden');
 
   // Clear inputs
@@ -353,6 +432,59 @@ function showDashboard() {
   elements.shortsCommitmentInput.value = '';
   elements.btnConfirmTime.disabled = true;
   elements.btnConfirmShorts.disabled = true;
+}
+
+/**
+ * Show settings view
+ */
+function showSettingsView() {
+  // Load current settings into form
+  loadSettings();
+
+  // Switch views
+  elements.dashboardView.classList.add('hidden');
+  elements.increaseTimeView.classList.add('hidden');
+  elements.increaseShortsView.classList.add('hidden');
+  elements.settingsView.classList.remove('hidden');
+}
+
+/**
+ * Load settings from storage
+ */
+function loadSettings() {
+  chrome.runtime.sendMessage({ action: 'getSettings' }, (response) => {
+    if (response) {
+      // Convert milliseconds to minutes for time inputs
+      elements.settingTimeLimit.value = Math.round(response.timeLimit / 60000);
+      elements.settingShortsLimit.value = response.shortsLimit;
+      elements.settingShortsPeriod.value = response.shortsPeriodHours;
+      elements.settingExtraTime.value = Math.round(response.extraTime / 60000);
+      elements.settingExtraShorts.value = response.extraShorts;
+    }
+  });
+}
+
+/**
+ * Save settings to storage
+ */
+function saveSettings() {
+  const settings = {
+    // Convert minutes to milliseconds for storage
+    timeLimit: parseInt(elements.settingTimeLimit.value) * 60 * 1000,
+    shortsLimit: parseInt(elements.settingShortsLimit.value),
+    shortsPeriodHours: parseInt(elements.settingShortsPeriod.value),
+    extraTime: parseInt(elements.settingExtraTime.value) * 60 * 1000,
+    extraShorts: parseInt(elements.settingExtraShorts.value)
+  };
+
+  chrome.runtime.sendMessage({ action: 'saveSettings', settings }, (response) => {
+    if (response?.success) {
+      showToast('Settings saved');
+      showDashboard();
+      loadStats();
+      updateButtonLabels();
+    }
+  });
 }
 
 /**
@@ -413,7 +545,10 @@ function resetMatchIndicator(indicator) {
 function confirmIncreaseTime() {
   chrome.runtime.sendMessage({ action: 'increaseTimeLimit' }, (response) => {
     if (response?.success) {
-      showToast('5 minutes added. Streak reset.');
+      const extraMinutes = elements.confirmTimeText
+        ? elements.confirmTimeText.textContent.match(/\d+/)?.[0] || '5'
+        : '5';
+      showToast(`${extraMinutes} minutes added. Streak reset.`);
       showDashboard();
       loadStats();
     }
@@ -426,7 +561,10 @@ function confirmIncreaseTime() {
 function confirmIncreaseShorts() {
   chrome.runtime.sendMessage({ action: 'increaseShortsLimit' }, (response) => {
     if (response?.success) {
-      showToast('3 shorts added. Streak reset.');
+      const extraShorts = elements.confirmShortsText
+        ? elements.confirmShortsText.textContent.match(/\d+/)?.[0] || '3'
+        : '3';
+      showToast(`${extraShorts} shorts added. Streak reset.`);
       showDashboard();
       loadStats();
     }

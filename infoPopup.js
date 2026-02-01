@@ -17,6 +17,7 @@ const elements = {
   timeStreakMini: null,
   shortsStreakMini: null,
   btnOpenDashboard: null,
+  btnSettings: null,
 };
 
 /**
@@ -44,6 +45,7 @@ function cacheElements() {
   elements.timeStreakMini = document.getElementById('time-streak-mini');
   elements.shortsStreakMini = document.getElementById('shorts-streak-mini');
   elements.btnOpenDashboard = document.getElementById('btn-open-dashboard');
+  elements.btnSettings = document.getElementById('btn-settings');
 }
 
 /**
@@ -51,6 +53,7 @@ function cacheElements() {
  */
 function attachEventListeners() {
   elements.btnOpenDashboard.addEventListener('click', openDashboard);
+  elements.btnSettings.addEventListener('click', openSettings);
 }
 
 /**
@@ -142,6 +145,30 @@ async function openDashboard() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (tab) {
+    // Open side panel for the current tab
+    await chrome.sidePanel.open({ tabId: tab.id });
+    await chrome.sidePanel.setOptions({
+      tabId: tab.id,
+      path: 'sidepanelYtSummary.html',
+      enabled: true
+    });
+
+    // Close the popup
+    window.close();
+  }
+}
+
+/**
+ * Open the side panel to settings view
+ */
+async function openSettings() {
+  // Get the current active tab
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (tab) {
+    // Set flag to open to settings view
+    await chrome.storage.local.set({ openToSettings: true });
+
     // Open side panel for the current tab
     await chrome.sidePanel.open({ tabId: tab.id });
     await chrome.sidePanel.setOptions({

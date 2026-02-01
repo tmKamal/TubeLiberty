@@ -14,12 +14,40 @@
   padding: var(--space-4);
   border-bottom: 1px solid var(--color-neutral-200);
   background-color: var(--bg-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .logo {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* Icon Button (for settings gear) */
+.btn-icon {
+  background: none;
+  border: none;
+  padding: var(--space-2);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.btn-icon:active {
+  background-color: var(--color-neutral-200);
+}
+
+.icon-settings {
+  font-size: var(--font-size-base);
 }
 
 .logo-icon {

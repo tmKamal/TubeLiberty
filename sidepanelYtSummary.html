@@ -15,6 +15,9 @@
         <span class="logo-icon">🎯</span>
         <span class="logo-text">TubeLiberty</span>
       </div>
+      <button class="btn-icon" id="btn-settings" title="Settings">
+        <span class="icon-settings">⚙️</span>
+      </button>
     </header>
 
     <!-- Main Dashboard View -->
@@ -101,10 +104,10 @@
 
         <div class="controls-buttons">
           <button class="btn btn-secondary btn-full" id="btn-increase-time">
-            <span>Add 5 Minutes</span>
+            <span id="btn-increase-time-text">Add 5 Minutes</span>
           </button>
           <button class="btn btn-secondary btn-full" id="btn-increase-shorts">
-            <span>Add 3 Shorts</span>
+            <span id="btn-increase-shorts-text">Add 3 Shorts</span>
           </button>
         </div>
       </section>
@@ -154,7 +157,7 @@
 
         <div class="warning-actions">
           <button class="btn btn-danger btn-full" id="btn-confirm-time" disabled>
-            Add 5 More Minutes
+            <span id="confirm-time-text">Add 5 More Minutes</span>
           </button>
           <button class="btn btn-ghost btn-full" id="btn-cancel-time">
             ← Go Back
@@ -206,7 +209,7 @@
 
         <div class="warning-actions">
           <button class="btn btn-danger btn-full" id="btn-confirm-shorts" disabled>
-            Add 3 More Shorts
+            <span id="confirm-shorts-text">Add 3 More Shorts</span>
           </button>
           <button class="btn btn-ghost btn-full" id="btn-cancel-shorts">
             ← Go Back (Recommended)
@@ -216,6 +219,136 @@
         <p class="warning-footer">
           Think about what you could do instead with this time.
         </p>
+      </div>
+    </div>
+
+    <!-- Settings View -->
+    <div id="settings-view" class="sidepanel-content hidden">
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">Settings</h2>
+        </div>
+
+        <form id="settings-form" class="settings-form">
+          <!-- Daily Limits Section -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">Daily Limits</h3>
+
+            <!-- Time Limit -->
+            <div class="form-group">
+              <label class="form-label" for="setting-time-limit">
+                <span class="form-label-icon">⏱️</span>
+                Daily Watch Time Limit
+              </label>
+              <div class="form-input-group">
+                <input
+                  type="number"
+                  class="input"
+                  id="setting-time-limit"
+                  min="1"
+                  max="120"
+                  value="3"
+                >
+                <span class="form-input-suffix">minutes</span>
+              </div>
+            </div>
+
+            <!-- Shorts Limit -->
+            <div class="form-group">
+              <label class="form-label" for="setting-shorts-limit">
+                <span class="form-label-icon">📱</span>
+                Shorts Limit
+              </label>
+              <div class="form-input-group">
+                <input
+                  type="number"
+                  class="input"
+                  id="setting-shorts-limit"
+                  min="1"
+                  max="50"
+                  value="5"
+                >
+                <span class="form-input-suffix">shorts</span>
+              </div>
+            </div>
+
+            <!-- Shorts Reset Period -->
+            <div class="form-group">
+              <label class="form-label" for="setting-shorts-period">
+                <span class="form-label-icon">🔄</span>
+                Shorts Reset Period
+              </label>
+              <div class="form-input-group">
+                <input
+                  type="number"
+                  class="input"
+                  id="setting-shorts-period"
+                  min="1"
+                  max="24"
+                  value="2"
+                >
+                <span class="form-input-suffix">hours</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual Controls Section -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">Manual Controls</h3>
+            <p class="settings-section-description">
+              Configure the amounts added when you tap the "Add Time" or "Add Shorts" buttons.
+            </p>
+
+            <!-- Extra Time Increment -->
+            <div class="form-group">
+              <label class="form-label" for="setting-extra-time">
+                <span class="form-label-icon">➕</span>
+                Extra Time Increment
+              </label>
+              <div class="form-input-group">
+                <input
+                  type="number"
+                  class="input"
+                  id="setting-extra-time"
+                  min="1"
+                  max="30"
+                  value="5"
+                >
+                <span class="form-input-suffix">minutes</span>
+              </div>
+              <p class="form-hint">Amount added when you tap "Add Time"</p>
+            </div>
+
+            <!-- Extra Shorts Increment -->
+            <div class="form-group">
+              <label class="form-label" for="setting-extra-shorts">
+                <span class="form-label-icon">➕</span>
+                Extra Shorts Increment
+              </label>
+              <div class="form-input-group">
+                <input
+                  type="number"
+                  class="input"
+                  id="setting-extra-shorts"
+                  min="1"
+                  max="20"
+                  value="3"
+                >
+                <span class="form-input-suffix">shorts</span>
+              </div>
+              <p class="form-hint">Amount added when you tap "Add Shorts"</p>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-full" id="btn-save-settings">
+              Save Settings
+            </button>
+            <button type="button" class="btn btn-ghost btn-full" id="btn-cancel-settings">
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
