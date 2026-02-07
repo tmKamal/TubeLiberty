@@ -338,11 +338,33 @@
    * Check storage and show appropriate banner
    */
   function checkAndShowBanner() {
-    chrome.storage.local.get(['showShortBanner', 'showTimeBanner', 'lastBlockedVideoUrl'], (result) => {
+    chrome.storage.local.get([
+      'showShortBanner', 'showTimeBanner', 'lastBlockedVideoUrl',
+      'lastOpenedDate', 'totalWatchedTime', 'timeLimit',
+      'totalWatchedShorts', 'shortsLimit', 'lastRestTime', 'configShortsPeriodHours'
+    ], (result) => {
+      // Don't show stale banners from a previous day (service worker may not have reset yet)
+      if (result.lastOpenedDate && result.lastOpenedDate !== new Date().toDateString()) {
+        return;
+      }
+
+      // Validate that limits are actually still exceeded before showing banners
       if (result.showTimeBanner === true) {
-        showBanner('time', result.lastBlockedVideoUrl);
+        const timeStillExceeded = (result.totalWatchedTime || 0) > (result.timeLimit || 0);
+        if (timeStillExceeded) {
+          showBanner('time', result.lastBlockedVideoUrl);
+        } else {
+          chrome.storage.local.set({ showTimeBanner: false, lastBlockedVideoUrl: null });
+        }
       } else if (result.showShortBanner === true) {
-        showBanner('shorts');
+        const periodHours = result.configShortsPeriodHours || 2;
+        const periodExpired = (Date.now() - (result.lastRestTime || 0)) / 3600000 > periodHours;
+        const shortsStillExceeded = !periodExpired && (result.totalWatchedShorts || 0) > (result.shortsLimit || 0);
+        if (shortsStillExceeded) {
+          showBanner('shorts');
+        } else {
+          chrome.storage.local.set({ showShortBanner: false });
+        }
       }
     });
   }

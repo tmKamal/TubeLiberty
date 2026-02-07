@@ -46,9 +46,12 @@ body {
 
 /* Icon */
 .onboarding-icon {
-  font-size: 4rem;
   margin-bottom: var(--space-4);
-  line-height: 1;
+}
+
+.onboarding-icon img {
+  width: 80px;
+  height: 80px;
 }
 
 /* Title */
@@ -268,8 +271,9 @@ body {
     padding: var(--space-6);
   }
 
-  .onboarding-icon {
-    font-size: 3rem;
+  .onboarding-icon img {
+    width: 60px;
+    height: 60px;
   }
 
   .onboarding-title {

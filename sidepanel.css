@@ -55,7 +55,8 @@
 }
 
 .logo-icon {
-  font-size: var(--font-size-xl);
+  width: 28px;
+  height: 28px;
 }
 
 .logo-text {
