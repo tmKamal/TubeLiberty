@@ -6,6 +6,9 @@
 (function() {
   'use strict';
 
+  const K = TL.keys;
+  const D = TL.defaults;
+
   console.log('TubeLiberty content script loaded');
 
   let currentBanner = null;
@@ -14,7 +17,7 @@
    * Get the current video URL if on a watch page
    */
   function getCurrentVideoUrl() {
-    if (window.location.href.includes('watch?v=')) {
+    if (TL.urls.isWatch(window.location.href)) {
       return window.location.href;
     }
     return null;
@@ -298,19 +301,22 @@
   /**
    * Handle confirmed whitelist - actually whitelists the video
    */
-  function handleConfirmWhitelist(videoUrl) {
+  async function handleConfirmWhitelist(videoUrl) {
     if (!videoUrl) return;
 
-    chrome.runtime.sendMessage(
-      { action: 'whitelistVideo', videoUrl: videoUrl },
-      (response) => {
-        if (response?.success) {
-          // Clear the saved URL and redirect to the whitelisted video
-          chrome.storage.local.set({ lastBlockedVideoUrl: null });
-          window.location.href = videoUrl;
-        }
+    try {
+      const response = await chrome.runtime.sendMessage(
+        { action: 'whitelistVideo', videoUrl: videoUrl }
+      );
+
+      if (response?.success) {
+        // Clear the saved URL and redirect to the whitelisted video
+        await chrome.storage.local.set({ [K.LAST_BLOCKED_VIDEO_URL]: null });
+        window.location.href = videoUrl;
       }
-    );
+    } catch (err) {
+      console.error('Failed to whitelist video:', err);
+    }
   }
 
   /**
@@ -324,49 +330,58 @@
   /**
    * Handle accept button
    */
-  function handleAccept() {
-    // Clear banner flags and saved URL, stay on YouTube homepage
-    chrome.storage.local.set({
-      showTimeBanner: false,
-      showShortBanner: false,
-      lastBlockedVideoUrl: null
-    });
-    removeBanner();
+  async function handleAccept() {
+    try {
+      // Clear banner flags and saved URL, stay on YouTube homepage
+      await chrome.storage.local.set({
+        [K.SHOW_TIME_BANNER]: false,
+        [K.SHOW_SHORT_BANNER]: false,
+        [K.LAST_BLOCKED_VIDEO_URL]: null
+      });
+      removeBanner();
+    } catch (err) {
+      console.error('Failed to clear banner flags:', err);
+      removeBanner();
+    }
   }
 
   /**
    * Check storage and show appropriate banner
    */
-  function checkAndShowBanner() {
-    chrome.storage.local.get([
-      'showShortBanner', 'showTimeBanner', 'lastBlockedVideoUrl',
-      'lastOpenedDate', 'totalWatchedTime', 'timeLimit',
-      'totalWatchedShorts', 'shortsLimit', 'lastRestTime', 'configShortsPeriodHours'
-    ], (result) => {
+  async function checkAndShowBanner() {
+    try {
+      const result = await chrome.storage.local.get([
+        K.SHOW_SHORT_BANNER, K.SHOW_TIME_BANNER, K.LAST_BLOCKED_VIDEO_URL,
+        K.LAST_OPENED_DATE, K.TOTAL_WATCHED_TIME, K.TIME_LIMIT,
+        K.TOTAL_WATCHED_SHORTS, K.SHORTS_LIMIT, K.LAST_REST_TIME, K.CONFIG_SHORTS_PERIOD_HOURS
+      ]);
+
       // Don't show stale banners from a previous day (service worker may not have reset yet)
-      if (result.lastOpenedDate && result.lastOpenedDate !== new Date().toDateString()) {
+      if (result[K.LAST_OPENED_DATE] && result[K.LAST_OPENED_DATE] !== new Date().toDateString()) {
         return;
       }
 
       // Validate that limits are actually still exceeded before showing banners
-      if (result.showTimeBanner === true) {
-        const timeStillExceeded = (result.totalWatchedTime || 0) > (result.timeLimit || 0);
+      if (result[K.SHOW_TIME_BANNER] === true) {
+        const timeStillExceeded = (result[K.TOTAL_WATCHED_TIME] || 0) > (result[K.TIME_LIMIT] || 0);
         if (timeStillExceeded) {
-          showBanner('time', result.lastBlockedVideoUrl);
+          showBanner('time', result[K.LAST_BLOCKED_VIDEO_URL]);
         } else {
-          chrome.storage.local.set({ showTimeBanner: false, lastBlockedVideoUrl: null });
+          await chrome.storage.local.set({ [K.SHOW_TIME_BANNER]: false, [K.LAST_BLOCKED_VIDEO_URL]: null });
         }
-      } else if (result.showShortBanner === true) {
-        const periodHours = result.configShortsPeriodHours || 2;
-        const periodExpired = (Date.now() - (result.lastRestTime || 0)) / 3600000 > periodHours;
-        const shortsStillExceeded = !periodExpired && (result.totalWatchedShorts || 0) > (result.shortsLimit || 0);
+      } else if (result[K.SHOW_SHORT_BANNER] === true) {
+        const periodHours = result[K.CONFIG_SHORTS_PERIOD_HOURS] || D.SHORTS_PERIOD_HOURS;
+        const periodExpired = (Date.now() - (result[K.LAST_REST_TIME] || 0)) / TL.MS_PER_HOUR > periodHours;
+        const shortsStillExceeded = !periodExpired && (result[K.TOTAL_WATCHED_SHORTS] || 0) > (result[K.SHORTS_LIMIT] || 0);
         if (shortsStillExceeded) {
           showBanner('shorts');
         } else {
-          chrome.storage.local.set({ showShortBanner: false });
+          await chrome.storage.local.set({ [K.SHOW_SHORT_BANNER]: false });
         }
       }
-    });
+    } catch (err) {
+      console.error('Failed to check banner state:', err);
+    }
   }
 
   /**
@@ -387,16 +402,20 @@
   checkAndShowBanner();
 
   // Listen for storage changes
-  chrome.storage.onChanged.addListener((changes, namespace) => {
+  chrome.storage.onChanged.addListener(async (changes, namespace) => {
     if (namespace === 'local') {
-      if (changes.showTimeBanner?.newValue === true) {
-        // Fetch the saved video URL for whitelist option
-        chrome.storage.local.get(['lastBlockedVideoUrl'], (result) => {
-          showBanner('time', result.lastBlockedVideoUrl);
-        });
-      } else if (changes.showShortBanner?.newValue === true) {
+      if (changes[K.SHOW_TIME_BANNER]?.newValue === true) {
+        try {
+          // Fetch the saved video URL for whitelist option
+          const result = await chrome.storage.local.get([K.LAST_BLOCKED_VIDEO_URL]);
+          showBanner('time', result[K.LAST_BLOCKED_VIDEO_URL]);
+        } catch (err) {
+          console.error('Failed to fetch blocked video URL:', err);
+          showBanner('time', null);
+        }
+      } else if (changes[K.SHOW_SHORT_BANNER]?.newValue === true) {
         showBanner('shorts');
-      } else if (changes.showTimeBanner?.newValue === false && changes.showShortBanner?.newValue === false) {
+      } else if (changes[K.SHOW_TIME_BANNER]?.newValue === false && changes[K.SHOW_SHORT_BANNER]?.newValue === false) {
         removeBanner();
       }
     }

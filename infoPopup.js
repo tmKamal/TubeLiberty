@@ -3,6 +3,9 @@
  * Quick stats view from browser toolbar
  */
 
+const K = TL.keys;
+const D = TL.defaults;
+
 // DOM Elements
 const elements = {
   timeCurrent: null,
@@ -73,23 +76,23 @@ function loadStats() {
 function updateDisplay(stats) {
   // Time
   const timeUsed = stats.totalWatchedTime || 0;
-  const timeLimit = stats.timeLimit || 180000;
+  const timeLimit = stats.timeLimit || D.TIME_LIMIT_MS;
   const timePercent = Math.min((timeUsed / timeLimit) * 100, 100);
 
-  elements.timeCurrent.textContent = formatTime(timeUsed);
-  elements.timeLimit.textContent = formatTime(timeLimit);
+  elements.timeCurrent.textContent = TL.formatTime(timeUsed);
+  elements.timeLimit.textContent = TL.formatTime(timeLimit);
   elements.timeProgress.style.width = `${timePercent}%`;
-  updateProgressColor(elements.timeProgress, timePercent);
+  TL.updateProgressColor(elements.timeProgress, timePercent);
 
   // Shorts
   const shortsUsed = stats.totalWatchedShorts || 0;
-  const shortsLimit = stats.shortsLimit || 5;
+  const shortsLimit = stats.shortsLimit || D.SHORTS_LIMIT;
   const shortsPercent = Math.min((shortsUsed / shortsLimit) * 100, 100);
 
   elements.shortsCurrent.textContent = shortsUsed;
   elements.shortsLimit.textContent = shortsLimit;
   elements.shortsProgress.style.width = `${shortsPercent}%`;
-  updateProgressColor(elements.shortsProgress, shortsPercent);
+  TL.updateProgressColor(elements.shortsProgress, shortsPercent);
 
   // Videos
   elements.videosCount.textContent = stats.totalVideosWatched || 0;
@@ -113,39 +116,12 @@ function updateDisplay(stats) {
 }
 
 /**
- * Update progress bar color based on percentage
- */
-function updateProgressColor(element, percent) {
-  element.classList.remove('safe', 'warning', 'danger');
-
-  if (percent >= 90) {
-    element.classList.add('danger');
-  } else if (percent >= 70) {
-    element.classList.add('warning');
-  } else {
-    element.classList.add('safe');
-  }
-}
-
-/**
- * Format milliseconds to MM:SS
- */
-function formatTime(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-/**
  * Open the side panel dashboard
  */
 async function openDashboard() {
-  // Get the current active tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (tab) {
-    // Open side panel for the current tab
     await chrome.sidePanel.open({ tabId: tab.id });
     await chrome.sidePanel.setOptions({
       tabId: tab.id,
@@ -153,7 +129,6 @@ async function openDashboard() {
       enabled: true
     });
 
-    // Close the popup
     window.close();
   }
 }
@@ -162,14 +137,11 @@ async function openDashboard() {
  * Open the side panel to settings view
  */
 async function openSettings() {
-  // Get the current active tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (tab) {
-    // Set flag to open to settings view
-    await chrome.storage.local.set({ openToSettings: true });
+    await chrome.storage.local.set({ [K.OPEN_TO_SETTINGS]: true });
 
-    // Open side panel for the current tab
     await chrome.sidePanel.open({ tabId: tab.id });
     await chrome.sidePanel.setOptions({
       tabId: tab.id,
@@ -177,7 +149,6 @@ async function openSettings() {
       enabled: true
     });
 
-    // Close the popup
     window.close();
   }
 }

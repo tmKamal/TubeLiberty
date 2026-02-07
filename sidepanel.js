@@ -3,6 +3,10 @@
  * Dashboard for viewing stats and managing limits
  */
 
+const K = TL.keys;
+const D = TL.defaults;
+const V = TL.validation;
+
 // Commitment messages for increasing time limit (moderate tone)
 const timeCommitmentMessages = [
   'I am choosing distraction over my goals',
@@ -20,6 +24,9 @@ const shortsCommitmentMessages = [
   'I am feeding my addiction instead of fighting it',
   'I accept that I have no self-control today',
 ];
+
+// All view IDs for the showView() helper
+const VIEW_IDS = ['dashboard-view', 'increase-time-view', 'increase-shorts-view', 'settings-view'];
 
 // State
 let currentStats = null;
@@ -82,10 +89,17 @@ const elements = {
   currentTimeStreak: null,
   currentShortsStreak: null,
 
+  // Settings note
+  settingsLimitsNote: null,
+
   // Toast
   successToast: null,
   toastMessage: null,
 };
+
+// Original values for daily limit fields (set when settings are loaded)
+let savedLimitValues = {};
+
 
 /**
  * Initialize the side panel
@@ -97,15 +111,15 @@ function init() {
   loadStats();
 
   // Check if we should open to settings view
-  chrome.storage.local.get(['openToSettings'], (result) => {
-    if (result.openToSettings) {
-      chrome.storage.local.remove('openToSettings');
+  chrome.storage.local.get([K.OPEN_TO_SETTINGS], (result) => {
+    if (result[K.OPEN_TO_SETTINGS]) {
+      chrome.storage.local.remove(K.OPEN_TO_SETTINGS);
       showSettingsView();
     }
   });
 
   // Refresh stats periodically
-  setInterval(loadStats, 5000);
+  setInterval(loadStats, TL.timing.STATS_REFRESH_MS);
 }
 
 /**
@@ -149,6 +163,7 @@ function cacheElements() {
   elements.settingExtraTime = document.getElementById('setting-extra-time');
   elements.settingExtraShorts = document.getElementById('setting-extra-shorts');
   elements.settingsForm = document.getElementById('settings-form');
+  elements.settingsLimitsNote = document.getElementById('settings-limits-note');
 
   elements.timeCommitmentText = document.getElementById('time-commitment-text');
   elements.timeCommitmentInput = document.getElementById('time-commitment-input');
@@ -191,6 +206,11 @@ function attachEventListeners() {
     saveSettings();
   });
   elements.btnCancelSettings.addEventListener('click', () => showDashboard());
+
+  // Show/hide note when daily limit fields change
+  elements.settingTimeLimit.addEventListener('input', checkLimitsChanged);
+  elements.settingShortsLimit.addEventListener('input', checkLimitsChanged);
+  elements.settingShortsPeriod.addEventListener('input', checkLimitsChanged);
 }
 
 /**
@@ -218,7 +238,7 @@ function loadStats() {
 function updateButtonLabels() {
   chrome.runtime.sendMessage({ action: 'getSettings' }, (response) => {
     if (response) {
-      const extraMinutes = Math.round(response.extraTime / 60000);
+      const extraMinutes = Math.round(response.extraTime / TL.MS_PER_MINUTE);
       const extraShorts = response.extraShorts;
 
       // Update dashboard buttons
@@ -246,29 +266,29 @@ function updateButtonLabels() {
 function updateDashboard(stats) {
   // Update time progress
   const timeUsed = stats.totalWatchedTime || 0;
-  const timeLimit = stats.timeLimit || 180000;
+  const timeLimit = stats.timeLimit || D.TIME_LIMIT_MS;
   const timePercent = Math.min((timeUsed / timeLimit) * 100, 100);
 
-  elements.timeValue.textContent = `${formatTime(timeUsed)} / ${formatTime(timeLimit)}`;
+  elements.timeValue.textContent = `${TL.formatTime(timeUsed)} / ${TL.formatTime(timeLimit)}`;
   elements.timeProgress.style.width = `${timePercent}%`;
-  updateProgressColor(elements.timeProgress, timePercent);
+  TL.updateProgressColor(elements.timeProgress, timePercent);
 
   // Update shorts progress
   const shortsUsed = stats.totalWatchedShorts || 0;
-  const shortsLimit = stats.shortsLimit || 5;
+  const shortsLimit = stats.shortsLimit || D.SHORTS_LIMIT;
   const shortsPercent = Math.min((shortsUsed / shortsLimit) * 100, 100);
 
   elements.shortsValue.textContent = `${shortsUsed} / ${shortsLimit}`;
   elements.shortsProgress.style.width = `${shortsPercent}%`;
-  updateProgressColor(elements.shortsProgress, shortsPercent);
+  TL.updateProgressColor(elements.shortsProgress, shortsPercent);
 
   // Update shorts reset time
   const lastRestTime = stats.lastRestTime || Date.now();
-  const resetTime = new Date(lastRestTime + (stats.shortsPeriodHours * 60 * 60 * 1000));
+  const resetTime = new Date(lastRestTime + (stats.shortsPeriodHours * TL.MS_PER_HOUR));
   const now = new Date();
   if (resetTime > now) {
     const remainingMs = resetTime - now;
-    const remainingMins = Math.ceil(remainingMs / 60000);
+    const remainingMins = Math.ceil(remainingMs / TL.MS_PER_MINUTE);
     if (remainingMins > 60) {
       const hours = Math.floor(remainingMins / 60);
       const mins = remainingMins % 60;
@@ -305,31 +325,6 @@ function updateDashboard(stats) {
 }
 
 /**
- * Update progress bar color based on percentage
- */
-function updateProgressColor(element, percent) {
-  element.classList.remove('safe', 'warning', 'danger');
-
-  if (percent >= 90) {
-    element.classList.add('danger');
-  } else if (percent >= 70) {
-    element.classList.add('warning');
-  } else {
-    element.classList.add('safe');
-  }
-}
-
-/**
- * Format milliseconds to MM:SS
- */
-function formatTime(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-/**
  * Format date for history display
  */
 function formatHistoryDate(dateStr) {
@@ -343,7 +338,7 @@ function formatHistoryDate(dateStr) {
   } else if (date.toDateString() === yesterday.toDateString()) {
     return 'Yesterday';
   } else {
-    const daysAgo = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+    const daysAgo = Math.floor((today - date) / (24 * TL.MS_PER_HOUR));
     return `${daysAgo} days ago`;
   }
 }
@@ -363,7 +358,7 @@ function updateHistory(history) {
       <div class="history-stats">
         <span class="history-stat">
           <span>⏱️</span>
-          ${formatTime(entry.time)}
+          ${TL.formatTime(entry.time)}
         </span>
         <span class="history-stat">
           <span>📱</span>
@@ -372,6 +367,16 @@ function updateHistory(history) {
       </div>
     </li>
   `).join('');
+}
+
+/**
+ * Switch to the named view, hiding all others
+ */
+function showView(viewId) {
+  VIEW_IDS.forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+  document.getElementById(viewId).classList.remove('hidden');
 }
 
 /**
@@ -390,10 +395,7 @@ function showIncreaseTimeView() {
   // Update streak display
   elements.currentTimeStreak.textContent = currentStats?.timeStreak || 0;
 
-  // Switch views
-  elements.dashboardView.classList.add('hidden');
-  elements.increaseShortsView.classList.add('hidden');
-  elements.increaseTimeView.classList.remove('hidden');
+  showView('increase-time-view');
 }
 
 /**
@@ -412,20 +414,14 @@ function showIncreaseShortsView() {
   // Update streak display
   elements.currentShortsStreak.textContent = currentStats?.shortsStreak || 0;
 
-  // Switch views
-  elements.dashboardView.classList.add('hidden');
-  elements.increaseTimeView.classList.add('hidden');
-  elements.increaseShortsView.classList.remove('hidden');
+  showView('increase-shorts-view');
 }
 
 /**
  * Show dashboard view
  */
 function showDashboard() {
-  elements.increaseTimeView.classList.add('hidden');
-  elements.increaseShortsView.classList.add('hidden');
-  elements.settingsView.classList.add('hidden');
-  elements.dashboardView.classList.remove('hidden');
+  showView('dashboard-view');
 
   // Clear inputs
   elements.timeCommitmentInput.value = '';
@@ -440,12 +436,7 @@ function showDashboard() {
 function showSettingsView() {
   // Load current settings into form
   loadSettings();
-
-  // Switch views
-  elements.dashboardView.classList.add('hidden');
-  elements.increaseTimeView.classList.add('hidden');
-  elements.increaseShortsView.classList.add('hidden');
-  elements.settingsView.classList.remove('hidden');
+  showView('settings-view');
 }
 
 /**
@@ -455,26 +446,84 @@ function loadSettings() {
   chrome.runtime.sendMessage({ action: 'getSettings' }, (response) => {
     if (response) {
       // Convert milliseconds to minutes for time inputs
-      elements.settingTimeLimit.value = Math.round(response.timeLimit / 60000);
+      elements.settingTimeLimit.value = Math.round(response.timeLimit / TL.MS_PER_MINUTE);
       elements.settingShortsLimit.value = response.shortsLimit;
       elements.settingShortsPeriod.value = response.shortsPeriodHours;
-      elements.settingExtraTime.value = Math.round(response.extraTime / 60000);
+      elements.settingExtraTime.value = Math.round(response.extraTime / TL.MS_PER_MINUTE);
       elements.settingExtraShorts.value = response.extraShorts;
+
+      // Store original daily limit values for change detection
+      savedLimitValues = {
+        timeLimit: elements.settingTimeLimit.value,
+        shortsLimit: elements.settingShortsLimit.value,
+        shortsPeriod: elements.settingShortsPeriod.value
+      };
+
+      // Hide note when settings are freshly loaded
+      elements.settingsLimitsNote.classList.add('hidden');
     }
   });
+}
+
+/**
+ * Check if any daily limit field has changed from its saved value
+ */
+function checkLimitsChanged() {
+  const changed =
+    elements.settingTimeLimit.value !== savedLimitValues.timeLimit ||
+    elements.settingShortsLimit.value !== savedLimitValues.shortsLimit ||
+    elements.settingShortsPeriod.value !== savedLimitValues.shortsPeriod;
+
+  elements.settingsLimitsNote.classList.toggle('hidden', !changed);
+}
+
+/**
+ * Validate a numeric input is an integer within [min, max]
+ */
+function isValidInt(value, min, max) {
+  const n = parseInt(value, 10);
+  return !isNaN(n) && n >= min && n <= max;
 }
 
 /**
  * Save settings to storage
  */
 function saveSettings() {
+  const rawTime = elements.settingTimeLimit.value;
+  const rawShorts = elements.settingShortsLimit.value;
+  const rawPeriod = elements.settingShortsPeriod.value;
+  const rawExtraTime = elements.settingExtraTime.value;
+  const rawExtraShorts = elements.settingExtraShorts.value;
+
+  // Validate all inputs
+  if (!isValidInt(rawTime, V.TIME_LIMIT_MIN, V.TIME_LIMIT_MAX)) {
+    showToast(`Time limit must be ${V.TIME_LIMIT_MIN}-${V.TIME_LIMIT_MAX} minutes`);
+    return;
+  }
+  if (!isValidInt(rawShorts, V.SHORTS_LIMIT_MIN, V.SHORTS_LIMIT_MAX)) {
+    showToast(`Shorts limit must be ${V.SHORTS_LIMIT_MIN}-${V.SHORTS_LIMIT_MAX}`);
+    return;
+  }
+  if (!isValidInt(rawPeriod, V.SHORTS_PERIOD_MIN, V.SHORTS_PERIOD_MAX)) {
+    showToast(`Shorts period must be ${V.SHORTS_PERIOD_MIN}-${V.SHORTS_PERIOD_MAX} hours`);
+    return;
+  }
+  if (!isValidInt(rawExtraTime, V.EXTRA_TIME_MIN, V.EXTRA_TIME_MAX)) {
+    showToast(`Extra time must be ${V.EXTRA_TIME_MIN}-${V.EXTRA_TIME_MAX} minutes`);
+    return;
+  }
+  if (!isValidInt(rawExtraShorts, V.EXTRA_SHORTS_MIN, V.EXTRA_SHORTS_MAX)) {
+    showToast(`Extra shorts must be ${V.EXTRA_SHORTS_MIN}-${V.EXTRA_SHORTS_MAX}`);
+    return;
+  }
+
   const settings = {
     // Convert minutes to milliseconds for storage
-    timeLimit: parseInt(elements.settingTimeLimit.value) * 60 * 1000,
-    shortsLimit: parseInt(elements.settingShortsLimit.value),
-    shortsPeriodHours: parseInt(elements.settingShortsPeriod.value),
-    extraTime: parseInt(elements.settingExtraTime.value) * 60 * 1000,
-    extraShorts: parseInt(elements.settingExtraShorts.value)
+    timeLimit: parseInt(rawTime, 10) * TL.MS_PER_MINUTE,
+    shortsLimit: parseInt(rawShorts, 10),
+    shortsPeriodHours: parseInt(rawPeriod, 10),
+    extraTime: parseInt(rawExtraTime, 10) * TL.MS_PER_MINUTE,
+    extraShorts: parseInt(rawExtraShorts, 10)
   };
 
   chrome.runtime.sendMessage({ action: 'saveSettings', settings }, (response) => {
@@ -580,7 +629,7 @@ function showToast(message) {
 
   setTimeout(() => {
     elements.successToast.classList.add('hidden');
-  }, 3000);
+  }, TL.timing.TOAST_DURATION_MS);
 }
 
 // Initialize when DOM is ready

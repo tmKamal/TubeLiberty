@@ -559,6 +559,16 @@
   margin: 0;
 }
 
+.settings-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+  background-color: var(--color-warning-light);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+}
+
 .form-actions {
   display: flex;
   flex-direction: column;

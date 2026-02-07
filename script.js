@@ -3,6 +3,8 @@
  * Multi-step welcome flow for new users
  */
 
+const K = TL.keys;
+
 let currentStep = 1;
 const totalSteps = 4;
 
@@ -74,12 +76,14 @@ function updateProgressDots(activeStep) {
 /**
  * Finish onboarding and redirect to YouTube
  */
-function finishOnboarding() {
-  // Mark onboarding as complete
-  chrome.storage.local.set({ onboardingComplete: true }, () => {
-    // Redirect to YouTube
-    window.location.href = 'https://www.youtube.com';
-  });
+async function finishOnboarding() {
+  try {
+    await chrome.storage.local.set({ [K.ONBOARDING_COMPLETE]: true });
+    window.location.href = TL.urls.YOUTUBE_HOME;
+  } catch (err) {
+    console.error('Failed to save onboarding state:', err);
+    window.location.href = TL.urls.YOUTUBE_HOME;
+  }
 }
 
 // Initialize when DOM is ready

@@ -3,62 +3,60 @@
  * Manages YouTube usage limits, streaks, and history tracking
  */
 
-// Constants
-const WATCH_TIME_CHECK_INTERVAL = 10 * 1000; // 10 seconds
-const TIME_LIMIT_MS = 3 * 60 * 1000; // 3 minutes in milliseconds
-const SHORTS_LIMIT = 5;
-const SHORTS_PERIOD_HOURS = 2;
-const EXTRA_TIME_MS = 5 * 60 * 1000; // 5 minutes extra when increasing time
-const EXTRA_SHORTS = 3; // 3 extra shorts when increasing
+importScripts('shared/constants.js', 'shared/utils.js');
+
+const K = TL.keys;
+const D = TL.defaults;
 
 // State
 let debounceTimeout;
-let startTime;
 
 /**
  * Initialize storage with default values
  */
-function initializeStorage() {
+async function initializeStorage() {
   const today = new Date().toDateString();
 
-  chrome.storage.local.get(null, function(result) {
+  try {
+    const result = await chrome.storage.local.get(null);
+
     const defaults = {
       // Configurable settings (user preferences)
-      configTimeLimit: TIME_LIMIT_MS,
-      configShortsLimit: SHORTS_LIMIT,
-      configShortsPeriodHours: SHORTS_PERIOD_HOURS,
-      configExtraTime: EXTRA_TIME_MS,
-      configExtraShorts: EXTRA_SHORTS,
+      [K.CONFIG_TIME_LIMIT]: D.TIME_LIMIT_MS,
+      [K.CONFIG_SHORTS_LIMIT]: D.SHORTS_LIMIT,
+      [K.CONFIG_SHORTS_PERIOD_HOURS]: D.SHORTS_PERIOD_HOURS,
+      [K.CONFIG_EXTRA_TIME]: D.EXTRA_TIME_MS,
+      [K.CONFIG_EXTRA_SHORTS]: D.EXTRA_SHORTS,
 
       // Usage tracking
-      totalWatchedShorts: 0,
-      totalWatchedTime: 0,
-      totalVideosWatched: 0,
-      lastRestTime: Date.now(),
-      lastOpenedDate: today,
+      [K.TOTAL_WATCHED_SHORTS]: 0,
+      [K.TOTAL_WATCHED_TIME]: 0,
+      [K.TOTAL_VIDEOS_WATCHED]: 0,
+      [K.LAST_REST_TIME]: Date.now(),
+      [K.LAST_OPENED_DATE]: today,
 
       // Limits
-      timeLimit: TIME_LIMIT_MS,
-      shortsLimit: SHORTS_LIMIT,
+      [K.TIME_LIMIT]: D.TIME_LIMIT_MS,
+      [K.SHORTS_LIMIT]: D.SHORTS_LIMIT,
 
       // Banner states
-      showShortBanner: false,
-      showTimeBanner: false,
+      [K.SHOW_SHORT_BANNER]: false,
+      [K.SHOW_TIME_BANNER]: false,
 
       // Whitelist
-      whitelistedVideoUrl: null,
-      lastBlockedVideoUrl: null,
+      [K.WHITELISTED_VIDEO_URL]: null,
+      [K.LAST_BLOCKED_VIDEO_URL]: null,
 
       // Streaks
-      timeStreak: 0,
-      shortsStreak: 0,
-      lastTimeStreakDate: today,
-      lastShortsStreakDate: today,
-      timeStreakBrokenToday: false,
-      shortsStreakBrokenToday: false,
+      [K.TIME_STREAK]: 0,
+      [K.SHORTS_STREAK]: 0,
+      [K.LAST_TIME_STREAK_DATE]: today,
+      [K.LAST_SHORTS_STREAK_DATE]: today,
+      [K.TIME_STREAK_BROKEN_TODAY]: false,
+      [K.SHORTS_STREAK_BROKEN_TODAY]: false,
 
       // History (last 7 days)
-      history: []
+      [K.HISTORY]: []
     };
 
     // Set defaults for any missing values
@@ -70,80 +68,86 @@ function initializeStorage() {
     }
 
     if (Object.keys(updates).length > 0) {
-      chrome.storage.local.set(updates);
+      await chrome.storage.local.set(updates);
     }
 
     // Check if it's a new day
-    if (result.lastOpenedDate && result.lastOpenedDate !== today) {
-      handleNewDay(result);
+    if (result[K.LAST_OPENED_DATE] && result[K.LAST_OPENED_DATE] !== today) {
+      await handleNewDay(result);
     }
-  });
+  } catch (err) {
+    console.error('Failed to initialize storage:', err);
+  }
 }
 
 /**
  * Handle transition to a new day
  */
-function handleNewDay(previousData) {
+async function handleNewDay(previousData) {
   const today = new Date().toDateString();
-  const yesterday = previousData.lastOpenedDate;
+  const yesterday = previousData[K.LAST_OPENED_DATE];
 
   // Save yesterday's data to history
   const historyEntry = {
     date: yesterday,
-    time: previousData.totalWatchedTime || 0,
-    shorts: previousData.totalWatchedShorts || 0,
-    videos: previousData.totalVideosWatched || 0
+    time: previousData[K.TOTAL_WATCHED_TIME] || 0,
+    shorts: previousData[K.TOTAL_WATCHED_SHORTS] || 0,
+    videos: previousData[K.TOTAL_VIDEOS_WATCHED] || 0
   };
 
-  let history = previousData.history || [];
+  let history = previousData[K.HISTORY] || [];
   history.unshift(historyEntry);
   // Keep only last 7 days
   history = history.slice(0, 7);
 
   // Update streaks
-  let timeStreak = previousData.timeStreak || 0;
-  let shortsStreak = previousData.shortsStreak || 0;
+  let timeStreak = previousData[K.TIME_STREAK] || 0;
+  let shortsStreak = previousData[K.SHORTS_STREAK] || 0;
 
   // If user didn't break their streak yesterday, increment it
-  if (!previousData.timeStreakBrokenToday) {
+  if (!previousData[K.TIME_STREAK_BROKEN_TODAY]) {
     timeStreak++;
   } else {
     timeStreak = 0;
   }
 
-  if (!previousData.shortsStreakBrokenToday) {
+  if (!previousData[K.SHORTS_STREAK_BROKEN_TODAY]) {
     shortsStreak++;
   } else {
     shortsStreak = 0;
   }
 
   // Use configured defaults for new day limits
-  const configTimeLimit = previousData.configTimeLimit || TIME_LIMIT_MS;
-  const configShortsLimit = previousData.configShortsLimit || SHORTS_LIMIT;
+  const configTimeLimit = previousData[K.CONFIG_TIME_LIMIT] || D.TIME_LIMIT_MS;
+  const configShortsLimit = previousData[K.CONFIG_SHORTS_LIMIT] || D.SHORTS_LIMIT;
 
-  // Reset daily values
-  chrome.storage.local.set({
-    totalWatchedTime: 0,
-    totalWatchedShorts: 0,
-    totalVideosWatched: 0,
-    timeLimit: configTimeLimit,
-    shortsLimit: configShortsLimit,
-    showShortBanner: false,
-    showTimeBanner: false,
-    whitelistedVideoUrl: null,
-    lastBlockedVideoUrl: null,
-    lastOpenedDate: today,
-    lastRestTime: Date.now(),
-    timeStreak: timeStreak,
-    shortsStreak: shortsStreak,
-    lastTimeStreakDate: today,
-    lastShortsStreakDate: today,
-    timeStreakBrokenToday: false,
-    shortsStreakBrokenToday: false,
-    history: history
-  });
+  try {
+    // Reset daily values
+    await chrome.storage.local.set({
+      [K.TOTAL_WATCHED_TIME]: 0,
+      [K.TOTAL_WATCHED_SHORTS]: 0,
+      [K.TOTAL_VIDEOS_WATCHED]: 0,
+      [K.TIME_LIMIT]: configTimeLimit,
+      [K.SHORTS_LIMIT]: configShortsLimit,
+      [K.SHOW_SHORT_BANNER]: false,
+      [K.SHOW_TIME_BANNER]: false,
+      [K.WHITELISTED_VIDEO_URL]: null,
+      [K.LAST_BLOCKED_VIDEO_URL]: null,
+      [K.LAST_OPENED_DATE]: today,
+      [K.LAST_REST_TIME]: Date.now(),
+      [K.TIME_STREAK]: timeStreak,
+      [K.SHORTS_STREAK]: shortsStreak,
+      [K.LAST_TIME_STREAK_DATE]: today,
+      [K.LAST_SHORTS_STREAK_DATE]: today,
+      [K.TIME_STREAK_BROKEN_TODAY]: false,
+      [K.SHORTS_STREAK_BROKEN_TODAY]: false,
+      [K.HISTORY]: history
+    });
 
-  console.log('New day started. Streaks - Time:', timeStreak, 'Shorts:', shortsStreak);
+    console.log('New day started. Streaks - Time:', timeStreak, 'Shorts:', shortsStreak);
+  } catch (err) {
+    console.error('Failed to handle new day:', err);
+  }
 }
 
 // Initialize on service worker start
@@ -152,63 +156,70 @@ initializeStorage();
 /**
  * Redirect to YouTube homepage and set banner flag
  */
-function redirectToHomePageAndNotify(tabId, type, videoUrl = null) {
+async function redirectToHomePageAndNotify(tabId, type, videoUrl = null) {
   console.log('Redirecting to homepage, type:', type);
 
-  if (type === 'shorts') {
-    chrome.storage.local.set({ showShortBanner: true });
-  } else {
-    // Save the video URL so whitelist option can be shown on homepage
-    chrome.storage.local.set({
-      showTimeBanner: true,
-      lastBlockedVideoUrl: videoUrl
-    });
-  }
+  try {
+    if (type === 'shorts') {
+      await chrome.storage.local.set({ [K.SHOW_SHORT_BANNER]: true });
+    } else {
+      // Save the video URL so whitelist option can be shown on homepage
+      await chrome.storage.local.set({
+        [K.SHOW_TIME_BANNER]: true,
+        [K.LAST_BLOCKED_VIDEO_URL]: videoUrl
+      });
+    }
 
-  chrome.tabs.update(tabId, { url: 'https://www.youtube.com/' });
+    await chrome.tabs.update(tabId, { url: TL.urls.YOUTUBE_HOME });
+  } catch (err) {
+    console.error('Failed to redirect:', err);
+  }
 }
 
 /**
  * Handle shorts watching
  */
-function incrementWatchedShorts(tab) {
-  chrome.storage.local.get([
-    'totalWatchedShorts',
-    'lastRestTime',
-    'shortsLimit',
-    'configShortsPeriodHours'
-  ], function(result) {
-    let totalWatchedShorts = (result.totalWatchedShorts || 0) + 1;
-    const lastRestTime = result.lastRestTime || Date.now();
-    const shortsLimit = result.shortsLimit || SHORTS_LIMIT;
-    const shortsPeriodHours = result.configShortsPeriodHours || SHORTS_PERIOD_HOURS;
+async function incrementWatchedShorts(tab) {
+  try {
+    const result = await chrome.storage.local.get([
+      K.TOTAL_WATCHED_SHORTS,
+      K.LAST_REST_TIME,
+      K.SHORTS_LIMIT,
+      K.CONFIG_SHORTS_PERIOD_HOURS
+    ]);
+
+    let totalWatchedShorts = (result[K.TOTAL_WATCHED_SHORTS] || 0) + 1;
+    const lastRestTime = result[K.LAST_REST_TIME] || Date.now();
+    const shortsLimit = result[K.SHORTS_LIMIT] || D.SHORTS_LIMIT;
+    const shortsPeriodHours = result[K.CONFIG_SHORTS_PERIOD_HOURS] || D.SHORTS_PERIOD_HOURS;
 
     // Check if shorts period has expired
     const currentTime = Date.now();
-    const timeDifferenceHours = (currentTime - lastRestTime) / 1000 / 60 / 60;
+    const timeDifferenceHours = (currentTime - lastRestTime) / TL.MS_PER_HOUR;
 
     if (timeDifferenceHours > shortsPeriodHours) {
       // Reset the period
-      totalWatchedShorts = 1;
-      chrome.storage.local.set({
-        totalWatchedShorts: 1,
-        lastRestTime: currentTime
+      await chrome.storage.local.set({
+        [K.TOTAL_WATCHED_SHORTS]: 1,
+        [K.LAST_REST_TIME]: currentTime
       });
       console.log('Shorts period reset. Starting fresh count.');
       return;
     }
 
+    // Save the new count
+    await chrome.storage.local.set({ [K.TOTAL_WATCHED_SHORTS]: totalWatchedShorts });
+
     // Check if limit exceeded
     if (totalWatchedShorts > shortsLimit) {
       console.log('Shorts limit exceeded:', totalWatchedShorts, '/', shortsLimit);
-      redirectToHomePageAndNotify(tab.id, 'shorts');
+      await redirectToHomePageAndNotify(tab.id, 'shorts');
       return;
     }
-
-    // Save the new count
-    chrome.storage.local.set({ totalWatchedShorts: totalWatchedShorts });
     console.log('Shorts watched:', totalWatchedShorts, '/', shortsLimit);
-  });
+  } catch (err) {
+    console.error('Failed to increment shorts:', err);
+  }
 }
 
 /**
@@ -217,14 +228,8 @@ function incrementWatchedShorts(tab) {
 function isWhitelistedVideo(url, whitelistedUrl) {
   if (!whitelistedUrl || !url) return false;
 
-  // Extract video ID from both URLs
-  const getVideoId = (u) => {
-    const match = u.match(/[?&]v=([^&]+)/);
-    return match ? match[1] : null;
-  };
-
-  const currentVideoId = getVideoId(url);
-  const whitelistedVideoId = getVideoId(whitelistedUrl);
+  const currentVideoId = TL.urls.getVideoId(url);
+  const whitelistedVideoId = TL.urls.getVideoId(whitelistedUrl);
 
   return currentVideoId && whitelistedVideoId && currentVideoId === whitelistedVideoId;
 }
@@ -232,91 +237,96 @@ function isWhitelistedVideo(url, whitelistedUrl) {
 /**
  * Check total watch time and enforce limit
  */
-function checkTotalWatchTime(tabId) {
-  chrome.tabs.get(tabId, function(tab) {
-    if (chrome.runtime.lastError || !tab || !tab.url) {
+async function checkTotalWatchTime(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab || !tab.url || !TL.urls.isWatch(tab.url)) {
       return;
     }
 
-    if (!tab.url.includes('youtube.com/watch')) {
+    const result = await chrome.storage.local.get([
+      K.TOTAL_WATCHED_TIME,
+      K.TIME_LIMIT,
+      K.WHITELISTED_VIDEO_URL
+    ]);
+
+    // Check if this video is whitelisted
+    if (isWhitelistedVideo(tab.url, result[K.WHITELISTED_VIDEO_URL])) {
+      console.log('Whitelisted video - not counting time');
       return;
     }
 
-    chrome.storage.local.get([
-      'totalWatchedTime',
-      'timeLimit',
-      'whitelistedVideoUrl'
-    ], function(result) {
-      // Check if this video is whitelisted
-      if (isWhitelistedVideo(tab.url, result.whitelistedVideoUrl)) {
-        console.log('Whitelisted video - not counting time');
-        return;
-      }
+    const totalWatchTime = (result[K.TOTAL_WATCHED_TIME] || 0) + D.WATCH_TIME_CHECK_INTERVAL;
+    const timeLimit = result[K.TIME_LIMIT] || D.TIME_LIMIT_MS;
 
-      let totalWatchTime = (result.totalWatchedTime || 0) + WATCH_TIME_CHECK_INTERVAL;
-      const timeLimit = result.timeLimit || TIME_LIMIT_MS;
+    await chrome.storage.local.set({ [K.TOTAL_WATCHED_TIME]: totalWatchTime });
 
-      chrome.storage.local.set({ totalWatchedTime: totalWatchTime });
-
-      // Check if limit exceeded
-      if (totalWatchTime > timeLimit) {
-        console.log('Time limit exceeded:', totalWatchTime, 'ms /', timeLimit, 'ms');
-        redirectToHomePageAndNotify(tabId, 'time', tab.url);
-      }
-    });
-  });
+    // Check if limit exceeded
+    if (totalWatchTime > timeLimit) {
+      console.log('Time limit exceeded:', totalWatchTime, 'ms /', timeLimit, 'ms');
+      await redirectToHomePageAndNotify(tabId, 'time', tab.url);
+    }
+  } catch (err) {
+    // Tab may have been closed — that's normal
+    if (!err.message?.includes('No tab')) {
+      console.error('Failed to check watch time:', err);
+    }
+  }
 }
 
 /**
  * Increment video count when user starts watching a new video
  */
-function incrementVideoCount(videoUrl) {
-  chrome.storage.local.get(['totalVideosWatched', 'lastVideoUrl'], function(result) {
+async function incrementVideoCount(videoUrl) {
+  try {
+    const result = await chrome.storage.local.get([K.TOTAL_VIDEOS_WATCHED, K.LAST_VIDEO_URL]);
+
     // Only count if it's a different video
-    if (result.lastVideoUrl !== videoUrl) {
-      const count = (result.totalVideosWatched || 0) + 1;
-      chrome.storage.local.set({
-        totalVideosWatched: count,
-        lastVideoUrl: videoUrl
+    if (result[K.LAST_VIDEO_URL] !== videoUrl) {
+      const count = (result[K.TOTAL_VIDEOS_WATCHED] || 0) + 1;
+      await chrome.storage.local.set({
+        [K.TOTAL_VIDEOS_WATCHED]: count,
+        [K.LAST_VIDEO_URL]: videoUrl
       });
       console.log('Videos watched today:', count);
     }
-  });
+  } catch (err) {
+    console.error('Failed to increment video count:', err);
+  }
 }
 
 // Listen for tab updates
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (!tab.url || !tab.url.includes('youtube.com')) {
+  if (!tab.url || !TL.urls.isYouTube(tab.url)) {
     return;
   }
 
   // Handle shorts
-  if (changeInfo.status === 'complete' && tab.url.includes('youtube.com/shorts')) {
+  if (changeInfo.status === 'complete' && TL.urls.isShorts(tab.url)) {
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
       incrementWatchedShorts(tab);
-    }, 1000);
+    }, TL.timing.SHORTS_DEBOUNCE_MS);
   }
 
   // Handle regular videos
   if (tab.url.includes('watch?v=')) {
     if (changeInfo.status === 'loading') {
-      startTime = Date.now();
       incrementVideoCount(tab.url);
       checkTotalWatchTime(tabId);
     }
   }
 });
 
-// Periodic time check
-setInterval(function() {
-  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+// --- Watch time check interval ---
+setInterval(function () {
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     if (tabs.length === 0) return;
-    if (tabs[0].url && tabs[0].url.includes('youtube.com/watch')) {
+    if (tabs[0].url && TL.urls.isWatch(tabs[0].url)) {
       checkTotalWatchTime(tabs[0].id);
     }
   });
-}, WATCH_TIME_CHECK_INTERVAL);
+}, D.WATCH_TIME_CHECK_INTERVAL);
 
 // Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -328,32 +338,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case 'getStats':
-      handleGetStats(sendResponse);
+      handleGetStats().then(sendResponse);
       return true; // Keep channel open for async response
 
     case 'getSettings':
-      handleGetSettings(sendResponse);
+      handleGetSettings().then(sendResponse);
       return true;
 
     case 'saveSettings':
-      handleSaveSettings(message.settings, sendResponse);
+      handleSaveSettings(message.settings).then(sendResponse);
       return true;
 
     case 'whitelistVideo':
-      handleWhitelistVideo(message.videoUrl, sendResponse);
+      handleWhitelistVideo(message.videoUrl).then(sendResponse);
       return true;
 
     case 'increaseTimeLimit':
-      handleIncreaseTimeLimit(sendResponse);
+      handleIncreaseTimeLimit().then(sendResponse);
       return true;
 
     case 'increaseShortsLimit':
-      handleIncreaseShortsLimit(sendResponse);
+      handleIncreaseShortsLimit().then(sendResponse);
       return true;
 
     case 'resetAllLimits':
-      handleResetAllLimits(sendResponse);
+      handleResetAllLimits().then(sendResponse);
       return true;
+
+    default:
+      console.warn('Unknown message action:', message.action);
+      break;
   }
 });
 
@@ -361,174 +375,206 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * Open side panel with context
  */
 async function handleOpenSideBar(tabId, context) {
-  await chrome.sidePanel.open({ tabId: tabId });
-  await chrome.sidePanel.setOptions({
-    tabId: tabId,
-    path: 'sidepanelYtSummary.html',
-    enabled: true
-  });
+  try {
+    await chrome.sidePanel.open({ tabId: tabId });
+    await chrome.sidePanel.setOptions({
+      tabId: tabId,
+      path: 'sidepanelYtSummary.html',
+      enabled: true
+    });
+  } catch (err) {
+    console.error('Failed to open side panel:', err);
+  }
 }
 
 /**
  * Get current stats for display
  */
-function handleGetStats(sendResponse) {
-  chrome.storage.local.get(null, function(result) {
-    const shortsPeriodHours = result.configShortsPeriodHours || SHORTS_PERIOD_HOURS;
+async function handleGetStats() {
+  try {
+    const result = await chrome.storage.local.get(null);
+    const shortsPeriodHours = result[K.CONFIG_SHORTS_PERIOD_HOURS] || D.SHORTS_PERIOD_HOURS;
 
-    const stats = {
+    return {
       // Usage
-      totalWatchedTime: result.totalWatchedTime || 0,
-      totalWatchedShorts: result.totalWatchedShorts || 0,
-      totalVideosWatched: result.totalVideosWatched || 0,
+      totalWatchedTime: result[K.TOTAL_WATCHED_TIME] || 0,
+      totalWatchedShorts: result[K.TOTAL_WATCHED_SHORTS] || 0,
+      totalVideosWatched: result[K.TOTAL_VIDEOS_WATCHED] || 0,
 
       // Limits
-      timeLimit: result.timeLimit || TIME_LIMIT_MS,
-      shortsLimit: result.shortsLimit || SHORTS_LIMIT,
+      timeLimit: result[K.TIME_LIMIT] || D.TIME_LIMIT_MS,
+      shortsLimit: result[K.SHORTS_LIMIT] || D.SHORTS_LIMIT,
 
       // Time remaining in shorts period
-      lastRestTime: result.lastRestTime || Date.now(),
+      lastRestTime: result[K.LAST_REST_TIME] || Date.now(),
       shortsPeriodHours: shortsPeriodHours,
 
       // Streaks
-      timeStreak: result.timeStreak || 0,
-      shortsStreak: result.shortsStreak || 0,
-      timeStreakBrokenToday: result.timeStreakBrokenToday || false,
-      shortsStreakBrokenToday: result.shortsStreakBrokenToday || false,
+      timeStreak: result[K.TIME_STREAK] || 0,
+      shortsStreak: result[K.SHORTS_STREAK] || 0,
+      timeStreakBrokenToday: result[K.TIME_STREAK_BROKEN_TODAY] || false,
+      shortsStreakBrokenToday: result[K.SHORTS_STREAK_BROKEN_TODAY] || false,
 
       // Whitelist
-      whitelistedVideoUrl: result.whitelistedVideoUrl,
+      whitelistedVideoUrl: result[K.WHITELISTED_VIDEO_URL],
 
       // History
-      history: result.history || []
+      history: result[K.HISTORY] || []
     };
-
-    sendResponse(stats);
-  });
+  } catch (err) {
+    console.error('Failed to get stats:', err);
+    return {};
+  }
 }
 
 /**
  * Get current settings
  */
-function handleGetSettings(sendResponse) {
-  chrome.storage.local.get([
-    'configTimeLimit',
-    'configShortsLimit',
-    'configShortsPeriodHours',
-    'configExtraTime',
-    'configExtraShorts'
-  ], function(result) {
-    const settings = {
-      timeLimit: result.configTimeLimit || TIME_LIMIT_MS,
-      shortsLimit: result.configShortsLimit || SHORTS_LIMIT,
-      shortsPeriodHours: result.configShortsPeriodHours || SHORTS_PERIOD_HOURS,
-      extraTime: result.configExtraTime || EXTRA_TIME_MS,
-      extraShorts: result.configExtraShorts || EXTRA_SHORTS
+async function handleGetSettings() {
+  try {
+    const result = await chrome.storage.local.get([
+      K.CONFIG_TIME_LIMIT,
+      K.CONFIG_SHORTS_LIMIT,
+      K.CONFIG_SHORTS_PERIOD_HOURS,
+      K.CONFIG_EXTRA_TIME,
+      K.CONFIG_EXTRA_SHORTS
+    ]);
+
+    return {
+      timeLimit: result[K.CONFIG_TIME_LIMIT] || D.TIME_LIMIT_MS,
+      shortsLimit: result[K.CONFIG_SHORTS_LIMIT] || D.SHORTS_LIMIT,
+      shortsPeriodHours: result[K.CONFIG_SHORTS_PERIOD_HOURS] || D.SHORTS_PERIOD_HOURS,
+      extraTime: result[K.CONFIG_EXTRA_TIME] || D.EXTRA_TIME_MS,
+      extraShorts: result[K.CONFIG_EXTRA_SHORTS] || D.EXTRA_SHORTS
     };
-    sendResponse(settings);
-  });
+  } catch (err) {
+    console.error('Failed to get settings:', err);
+    return {};
+  }
 }
 
 /**
  * Save settings
  */
-function handleSaveSettings(settings, sendResponse) {
-  chrome.storage.local.set({
-    configTimeLimit: settings.timeLimit,
-    configShortsLimit: settings.shortsLimit,
-    configShortsPeriodHours: settings.shortsPeriodHours,
-    configExtraTime: settings.extraTime,
-    configExtraShorts: settings.extraShorts
-  }, function() {
+async function handleSaveSettings(settings) {
+  try {
+    await chrome.storage.local.set({
+      [K.CONFIG_TIME_LIMIT]: settings.timeLimit,
+      [K.CONFIG_SHORTS_LIMIT]: settings.shortsLimit,
+      [K.CONFIG_SHORTS_PERIOD_HOURS]: settings.shortsPeriodHours,
+      [K.CONFIG_EXTRA_TIME]: settings.extraTime,
+      [K.CONFIG_EXTRA_SHORTS]: settings.extraShorts
+    });
     console.log('Settings saved:', settings);
-    sendResponse({ success: true });
-  });
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to save settings:', err);
+    return { success: false, error: err.message };
+  }
 }
 
 /**
  * Whitelist a specific video URL
  */
-function handleWhitelistVideo(videoUrl, sendResponse) {
-  chrome.storage.local.set({
-    whitelistedVideoUrl: videoUrl,
-    showTimeBanner: false,
-    lastBlockedVideoUrl: null
-  }, function() {
+async function handleWhitelistVideo(videoUrl) {
+  try {
+    await chrome.storage.local.set({
+      [K.WHITELISTED_VIDEO_URL]: videoUrl,
+      [K.SHOW_TIME_BANNER]: false,
+      [K.LAST_BLOCKED_VIDEO_URL]: null
+    });
     console.log('Video whitelisted:', videoUrl);
-    sendResponse({ success: true, videoUrl: videoUrl });
-  });
+    return { success: true, videoUrl: videoUrl };
+  } catch (err) {
+    console.error('Failed to whitelist video:', err);
+    return { success: false, error: err.message };
+  }
 }
 
 /**
  * Increase time limit (breaks streak)
  */
-function handleIncreaseTimeLimit(sendResponse) {
-  chrome.storage.local.get(['timeLimit', 'timeStreak', 'configExtraTime'], function(result) {
-    const extraTime = result.configExtraTime || EXTRA_TIME_MS;
-    const newLimit = (result.timeLimit || TIME_LIMIT_MS) + extraTime;
+async function handleIncreaseTimeLimit() {
+  try {
+    const result = await chrome.storage.local.get([K.TIME_LIMIT, K.TIME_STREAK, K.CONFIG_EXTRA_TIME]);
 
-    chrome.storage.local.set({
-      timeLimit: newLimit,
-      showTimeBanner: false,
-      lastBlockedVideoUrl: null,
-      timeStreakBrokenToday: true,
-      timeStreak: 0 // Reset streak immediately
-    }, function() {
-      console.log('Time limit increased to:', newLimit, 'ms. Streak broken.');
-      sendResponse({
-        success: true,
-        newLimit: newLimit,
-        extraTime: extraTime,
-        streakBroken: true
-      });
+    const extraTime = result[K.CONFIG_EXTRA_TIME] || D.EXTRA_TIME_MS;
+    const newLimit = (result[K.TIME_LIMIT] || D.TIME_LIMIT_MS) + extraTime;
+
+    await chrome.storage.local.set({
+      [K.TIME_LIMIT]: newLimit,
+      [K.SHOW_TIME_BANNER]: false,
+      [K.LAST_BLOCKED_VIDEO_URL]: null,
+      [K.TIME_STREAK_BROKEN_TODAY]: true,
+      [K.TIME_STREAK]: 0 // Reset streak immediately
     });
-  });
+
+    console.log('Time limit increased to:', newLimit, 'ms. Streak broken.');
+    return {
+      success: true,
+      newLimit: newLimit,
+      extraTime: extraTime,
+      streakBroken: true
+    };
+  } catch (err) {
+    console.error('Failed to increase time limit:', err);
+    return { success: false, error: err.message };
+  }
 }
 
 /**
  * Increase shorts limit (breaks streak)
  */
-function handleIncreaseShortsLimit(sendResponse) {
-  chrome.storage.local.get(['shortsLimit', 'shortsStreak', 'configExtraShorts'], function(result) {
-    const extraShorts = result.configExtraShorts || EXTRA_SHORTS;
-    const newLimit = (result.shortsLimit || SHORTS_LIMIT) + extraShorts;
+async function handleIncreaseShortsLimit() {
+  try {
+    const result = await chrome.storage.local.get([K.SHORTS_LIMIT, K.SHORTS_STREAK, K.CONFIG_EXTRA_SHORTS]);
 
-    chrome.storage.local.set({
-      shortsLimit: newLimit,
-      showShortBanner: false,
-      shortsStreakBrokenToday: true,
-      shortsStreak: 0 // Reset streak immediately
-    }, function() {
-      console.log('Shorts limit increased to:', newLimit, '. Streak broken.');
-      sendResponse({
-        success: true,
-        newLimit: newLimit,
-        extraShorts: extraShorts,
-        streakBroken: true
-      });
+    const extraShorts = result[K.CONFIG_EXTRA_SHORTS] || D.EXTRA_SHORTS;
+    const newLimit = (result[K.SHORTS_LIMIT] || D.SHORTS_LIMIT) + extraShorts;
+
+    await chrome.storage.local.set({
+      [K.SHORTS_LIMIT]: newLimit,
+      [K.SHOW_SHORT_BANNER]: false,
+      [K.SHORTS_STREAK_BROKEN_TODAY]: true,
+      [K.SHORTS_STREAK]: 0 // Reset streak immediately
     });
-  });
+
+    console.log('Shorts limit increased to:', newLimit, '. Streak broken.');
+    return {
+      success: true,
+      newLimit: newLimit,
+      extraShorts: extraShorts,
+      streakBroken: true
+    };
+  } catch (err) {
+    console.error('Failed to increase shorts limit:', err);
+    return { success: false, error: err.message };
+  }
 }
 
 /**
  * Reset all limits (used for testing/debugging)
  */
-function handleResetAllLimits(sendResponse) {
-  chrome.storage.local.set({
-    totalWatchedTime: 0,
-    totalWatchedShorts: 0,
-    totalVideosWatched: 0,
-    timeLimit: TIME_LIMIT_MS,
-    shortsLimit: SHORTS_LIMIT,
-    showTimeBanner: false,
-    showShortBanner: false,
-    whitelistedVideoUrl: null,
-    lastBlockedVideoUrl: null,
-    lastRestTime: Date.now()
-  }, function() {
+async function handleResetAllLimits() {
+  try {
+    await chrome.storage.local.set({
+      [K.TOTAL_WATCHED_TIME]: 0,
+      [K.TOTAL_WATCHED_SHORTS]: 0,
+      [K.TOTAL_VIDEOS_WATCHED]: 0,
+      [K.TIME_LIMIT]: D.TIME_LIMIT_MS,
+      [K.SHORTS_LIMIT]: D.SHORTS_LIMIT,
+      [K.SHOW_TIME_BANNER]: false,
+      [K.SHOW_SHORT_BANNER]: false,
+      [K.WHITELISTED_VIDEO_URL]: null,
+      [K.LAST_BLOCKED_VIDEO_URL]: null,
+      [K.LAST_REST_TIME]: Date.now()
+    });
     console.log('All limits reset');
-    sendResponse({ success: true });
-  });
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to reset limits:', err);
+    return { success: false, error: err.message };
+  }
 }
 
 // Handle extension installation
