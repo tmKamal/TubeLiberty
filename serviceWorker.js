@@ -81,30 +81,35 @@ async function initializeStorage() {
 }
 
 /**
- * Handle transition to a new day
+ * Handle transition to a new day (supports multi-day gaps).
+ * If the user hasn't opened YouTube for several days, each missed day
+ * gets a zero-usage history entry and counts as a perfect streak day.
  */
 async function handleNewDay(previousData) {
   const today = new Date().toDateString();
-  const yesterday = previousData[K.LAST_OPENED_DATE];
+  const lastDateStr = previousData[K.LAST_OPENED_DATE];
 
-  // Save yesterday's data to history
-  const historyEntry = {
-    date: yesterday,
-    time: previousData[K.TOTAL_WATCHED_TIME] || 0,
-    shorts: previousData[K.TOTAL_WATCHED_SHORTS] || 0,
-    videos: previousData[K.TOTAL_VIDEOS_WATCHED] || 0
-  };
+  // Mark today immediately so concurrent calls see the updated date and skip
+  await chrome.storage.local.set({ [K.LAST_OPENED_DATE]: today });
+
+  // Calculate how many days have passed
+  const lastDate = new Date(lastDateStr);
+  const todayDate = new Date(today);
+  const diffDays = Math.round((todayDate - lastDate) / (24 * TL.MS_PER_HOUR));
 
   let history = previousData[K.HISTORY] || [];
-  history.unshift(historyEntry);
-  // Keep only last 7 days
-  history = history.slice(0, 7);
-
-  // Update streaks
   let timeStreak = previousData[K.TIME_STREAK] || 0;
   let shortsStreak = previousData[K.SHORTS_STREAK] || 0;
 
-  // If user didn't break their streak yesterday, increment it
+  // Day 0: the last active day — save its actual usage data
+  history.unshift({
+    date: lastDateStr,
+    time: previousData[K.TOTAL_WATCHED_TIME] || 0,
+    shorts: previousData[K.TOTAL_WATCHED_SHORTS] || 0,
+    videos: previousData[K.TOTAL_VIDEOS_WATCHED] || 0
+  });
+
+  // Update streaks based on the last active day
   if (!previousData[K.TIME_STREAK_BROKEN_TODAY]) {
     timeStreak++;
   } else {
@@ -116,6 +121,26 @@ async function handleNewDay(previousData) {
   } else {
     shortsStreak = 0;
   }
+
+  // Days 1..diffDays-1: missed days where user didn't use YouTube at all.
+  // Not using YouTube = stayed within limits = perfect streak days.
+  for (let i = 1; i < diffDays; i++) {
+    const missedDate = new Date(lastDate);
+    missedDate.setDate(missedDate.getDate() + i);
+
+    history.unshift({
+      date: missedDate.toDateString(),
+      time: 0,
+      shorts: 0,
+      videos: 0
+    });
+
+    timeStreak++;
+    shortsStreak++;
+  }
+
+  // Keep only last 7 days
+  history = history.slice(0, 7);
 
   // Use configured defaults for new day limits
   const configTimeLimit = previousData[K.CONFIG_TIME_LIMIT] || D.TIME_LIMIT_MS;
@@ -144,7 +169,10 @@ async function handleNewDay(previousData) {
       [K.HISTORY]: history
     });
 
-    console.log('New day started. Streaks - Time:', timeStreak, 'Shorts:', shortsStreak);
+    console.log(
+      'New day started. Days elapsed:', diffDays,
+      '| Streaks - Time:', timeStreak, 'Shorts:', shortsStreak
+    );
   } catch (err) {
     console.error('Failed to handle new day:', err);
   }
@@ -152,6 +180,31 @@ async function handleNewDay(previousData) {
 
 // Initialize on service worker start
 initializeStorage();
+
+// Check for day change every minute via alarm
+chrome.alarms.create('dayChangeCheck', { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === 'dayChangeCheck') {
+    await checkForNewDay();
+  }
+});
+
+/**
+ * Lightweight day change check — can be called frequently.
+ * Safe to call multiple times; handleNewDay writes today's date first
+ * so concurrent calls see the updated date and skip.
+ */
+async function checkForNewDay() {
+  const today = new Date().toDateString();
+  try {
+    const result = await chrome.storage.local.get(null);
+    if (result[K.LAST_OPENED_DATE] && result[K.LAST_OPENED_DATE] !== today) {
+      await handleNewDay(result);
+    }
+  } catch (err) {
+    console.error('Failed to check for new day:', err);
+  }
+}
 
 /**
  * Redirect to YouTube homepage and set banner flag
@@ -392,6 +445,9 @@ async function handleOpenSideBar(tabId, context) {
  */
 async function handleGetStats() {
   try {
+    // Ensure day reset has happened before returning stats
+    await checkForNewDay();
+
     const result = await chrome.storage.local.get(null);
     const shortsPeriodHours = result[K.CONFIG_SHORTS_PERIOD_HOURS] || D.SHORTS_PERIOD_HOURS;
 

@@ -52,7 +52,7 @@ const elements = {
   shortsStreakCount: null,
   timeStreakCard: null,
   shortsStreakCard: null,
-  historyList: null,
+  historyChart: null,
 
   // Buttons
   btnSettings: null,
@@ -141,7 +141,7 @@ function cacheElements() {
   elements.shortsStreakCount = document.getElementById('shorts-streak-count');
   elements.timeStreakCard = document.getElementById('time-streak-card');
   elements.shortsStreakCard = document.getElementById('shorts-streak-card');
-  elements.historyList = document.getElementById('history-list');
+  elements.historyChart = document.getElementById('history-chart');
 
   elements.btnSettings = document.getElementById('btn-settings');
   elements.btnIncreaseTime = document.getElementById('btn-increase-time');
@@ -325,48 +325,44 @@ function updateDashboard(stats) {
 }
 
 /**
- * Format date for history display
+ * Get short day name from a date string
  */
-function formatHistoryDate(dateStr) {
-  const date = new Date(dateStr);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (date.toDateString() === today.toDateString()) {
-    return 'Today';
-  } else if (date.toDateString() === yesterday.toDateString()) {
-    return 'Yesterday';
-  } else {
-    const daysAgo = Math.floor((today - date) / (24 * TL.MS_PER_HOUR));
-    return `${daysAgo} days ago`;
-  }
+function getShortDay(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' });
 }
 
 /**
- * Update history list
+ * Update history bar chart
  */
 function updateHistory(history) {
   if (!history || history.length === 0) {
-    elements.historyList.innerHTML = '<li class="history-empty">No history yet. Check back tomorrow!</li>';
+    elements.historyChart.innerHTML = '<p class="history-empty">No history yet. Check back tomorrow!</p>';
     return;
   }
 
-  elements.historyList.innerHTML = history.map(entry => `
-    <li class="history-item">
-      <span class="history-date">${formatHistoryDate(entry.date)}</span>
-      <div class="history-stats">
-        <span class="history-stat">
-          <span>⏱️</span>
-          ${TL.formatTime(entry.time)}
-        </span>
-        <span class="history-stat">
-          <span>📱</span>
-          ${entry.shorts}
-        </span>
-      </div>
-    </li>
-  `).join('');
+  // Show oldest first (left to right)
+  const entries = [...history].reverse();
+
+  // Find max time to scale bars (floor at 1ms to avoid division by zero)
+  const maxTime = Math.max(1, ...entries.map(e => e.time));
+
+  elements.historyChart.innerHTML = `
+    <div class="chart-bars">
+      ${entries.map(entry => {
+        const percent = Math.round((entry.time / maxTime) * 100);
+        const timeLabel = TL.formatTime(entry.time);
+        return `
+          <div class="chart-column">
+            <span class="chart-value">${timeLabel}</span>
+            <div class="chart-bar-track">
+              <div class="chart-bar" style="height: ${percent}%"></div>
+            </div>
+            <span class="chart-label">${getShortDay(entry.date)}</span>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 /**
