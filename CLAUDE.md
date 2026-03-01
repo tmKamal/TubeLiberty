@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TubeLiberty is a Chrome Extension (Manifest V3) for managing YouTube screen time. It limits daily watch time (default: 3 minutes) and restricts shorts consumption (default: 5 per 2-hour period), tracks streaks, and provides a dashboard for habit monitoring.
 
-## Philosophy (see `docs/PHILOSOPHY.md` for full details)
+## Philosophy (see `dev-docs/PHILOSOPHY.md` for full details)
 
 **Core principle:** Limits are boundaries to prevent doom scrolling, NOT goals to achieve. Staying WITHIN limits is the real win.
 
