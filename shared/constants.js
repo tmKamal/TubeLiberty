@@ -107,7 +107,7 @@ const TL = {
   // --- Settings validation ranges ---
   validation: Object.freeze({
     TIME_LIMIT_MIN: 1,
-    TIME_LIMIT_MAX: 120,
+    TIME_LIMIT_MAX: 720,
     SHORTS_LIMIT_MIN: 1,
     SHORTS_LIMIT_MAX: 50,
     SHORTS_PERIOD_MIN: 1,

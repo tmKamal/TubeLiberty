@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TubeLiberty",
   "version": "1.0",
-  "description": "TubeLiberty is a powerful Chrome extension designed to liberate users from the shackles of endless scrolling and mindless consumption on YouTube.",
+  "description": "Set daily watch time and shorts limits for YouTube. Track streaks, build better habits.",
   "minimum_chrome_version": "116",
   "background": {
     "service_worker": "serviceWorker.js"
@@ -11,7 +11,7 @@
     "default_popup": "infoPopup.html",
     "default_icon": {
       "16": "images/popup-16.png",
-      "48": "images/popup-16.png",
+      "48": "images/popup-48.png",
       "128": "images/popup-128.png"
     }
   },
